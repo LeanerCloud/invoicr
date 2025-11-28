@@ -34,7 +34,7 @@ npm install -g invoicr
 ### From source
 
 ```bash
-git clone https://github.com/cristim/invoicr.git
+git clone https://github.com/LeanerCloud/invoicr.git
 cd invoicr
 npm install
 npm run build
@@ -332,13 +332,6 @@ npm run build
 | `npm run invoice` | Generate an invoice |
 | `npm run new-client` | Create a new client interactively |
 | `npm run dev` | Run invoice.ts directly with ts-node |
-
-## Publishing to npm
-
-```bash
-npm login
-npm publish
-```
 
 ## License
 
