@@ -1,0 +1,43 @@
+{
+  "name": "invoicr",
+  "version": "1.0.0",
+  "description": "CLI tool to generate DOCX/PDF invoices from JSON configs with email integration",
+  "main": "dist/invoice.js",
+  "bin": {
+    "invoicr": "dist/invoice.js",
+    "invoicr-new": "dist/create-client.js"
+  },
+  "scripts": {
+    "build": "tsc && cp -r src/translations dist/",
+    "invoice": "node dist/invoice.js",
+    "new-client": "node dist/create-client.js",
+    "dev": "ts-node src/invoice.ts"
+  },
+  "keywords": [
+    "invoice",
+    "invoicing",
+    "pdf",
+    "docx",
+    "billing",
+    "freelance",
+    "cli",
+    "generator"
+  ],
+  "author": "Cristian Magherusan-Stanciu <cristi@leanercloud.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cristim/invoicr"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "docx": "^9.5.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0"
+  }
+}

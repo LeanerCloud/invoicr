@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Provider config (contains personal info)
+provider.json
+
+# Client folders (contain private client data)
+blocks/
+coreware/
+datafy/
+meteorops/
+openops/
+performline/
+shiftmarkets/
+clients/*/
+
+# Keep clients directory structure
+!clients/.keep
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+
+# Temp files
+*.log
+temp_email.scpt

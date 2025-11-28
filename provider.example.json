@@ -1,0 +1,16 @@
+{
+  "name": "Your Name",
+  "address": {
+    "street": "Street 123",
+    "city": "12345 City, Country"
+  },
+  "phone": "+49 123 456789",
+  "email": "email@example.com",
+  "bank": {
+    "name": "Bank Name",
+    "iban": "DE00 0000 0000 0000 0000 00",
+    "bic": "BICCODE"
+  },
+  "taxNumber": "12/345/67890",
+  "vatId": "DE123456789"
+}

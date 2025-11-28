@@ -1,0 +1,22 @@
+{
+  "name": "Acme Corp",
+  "address": {
+    "street": "123 Main Street",
+    "city": "New York, NY 10001"
+  },
+  "language": "en",
+  "invoicePrefix": "AC",
+  "nextInvoiceNumber": 1,
+  "projectReference": "Website Redesign",
+  "service": {
+    "description": "Frontend Development Services",
+    "billingType": "hourly",
+    "rate": 150,
+    "currency": "USD"
+  },
+  "paymentTermsDays": 30,
+  "email": {
+    "to": ["Jane Smith <jane@acme.com>"],
+    "cc": ["Accounting <billing@acme.com>"]
+  }
+}

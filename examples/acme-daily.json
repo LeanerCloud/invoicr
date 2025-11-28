@@ -1,0 +1,26 @@
+{
+  "name": "Acme GmbH",
+  "address": {
+    "street": "Musterstraße 42",
+    "city": "10115 Berlin"
+  },
+  "language": "de",
+  "emailLanguage": "en",
+  "invoicePrefix": "ACM",
+  "nextInvoiceNumber": 1,
+  "projectReference": "Cloud Migration Project",
+  "service": {
+    "description": {
+      "de": "Cloud-Infrastruktur & DevOps Beratung",
+      "en": "Cloud Infrastructure & DevOps Consulting"
+    },
+    "billingType": "daily",
+    "rate": 1200,
+    "currency": "EUR"
+  },
+  "paymentTermsDays": 14,
+  "email": {
+    "to": ["Max Mustermann <max@acme.de>"],
+    "cc": ["Buchhaltung <accounting@acme.de>"]
+  }
+}

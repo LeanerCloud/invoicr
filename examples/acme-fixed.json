@@ -1,0 +1,26 @@
+{
+  "name": "Acme Industries Ltd",
+  "address": {
+    "street": "100 Business Park Drive",
+    "city": "London, EC1A 1BB"
+  },
+  "language": "en",
+  "invoicePrefix": "AI",
+  "nextInvoiceNumber": 1,
+  "projectReference": "Mobile App Development - Phase 2",
+  "service": {
+    "description": "Software Development - Milestone Payment",
+    "billingType": "fixed",
+    "rate": 0,
+    "currency": "USD"
+  },
+  "bank": {
+    "name": "Revolut",
+    "iban": "GB00 REVO 0000 0000 0000 00",
+    "bic": "REVOGB21"
+  },
+  "paymentTermsDays": null,
+  "email": {
+    "to": ["John Doe <john@acme-industries.com>"]
+  }
+}
