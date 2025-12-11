@@ -28,20 +28,36 @@ const shouldEmail = args.includes('--email');
 const isTestMode = args.includes('--test');
 
 // Load configuration files
-const rootDir = path.join(__dirname, '..');
-const providerPath = path.join(rootDir, 'provider.json');
-// Check clients/ folder first, then root for backwards compatibility, then examples
-const clientsPath = path.join(rootDir, 'clients', clientFolder, `${clientFolder}.json`);
-const legacyPath = path.join(rootDir, clientFolder, `${clientFolder}.json`);
-const examplePath = path.join(rootDir, 'examples', `${clientFolder}.json`);
-const clientPath = fs.existsSync(clientsPath) ? clientsPath : fs.existsSync(legacyPath) ? legacyPath : examplePath;
+// Check current working directory first, then fall back to installation directory
+const cwd = process.cwd();
+const installDir = path.join(__dirname, '..');
+
+// Provider: check cwd first, then installation directory
+const cwdProviderPath = path.join(cwd, 'provider.json');
+const installProviderPath = path.join(installDir, 'provider.json');
+const providerPath = fs.existsSync(cwdProviderPath) ? cwdProviderPath : installProviderPath;
+
+// Client: check cwd paths first, then installation directory paths
+const cwdClientsPath = path.join(cwd, 'clients', clientFolder, `${clientFolder}.json`);
+const cwdLegacyPath = path.join(cwd, clientFolder, `${clientFolder}.json`);
+const installClientsPath = path.join(installDir, 'clients', clientFolder, `${clientFolder}.json`);
+const installLegacyPath = path.join(installDir, clientFolder, `${clientFolder}.json`);
+const examplePath = path.join(installDir, 'examples', `${clientFolder}.json`);
+
+const clientPath = fs.existsSync(cwdClientsPath) ? cwdClientsPath :
+                   fs.existsSync(cwdLegacyPath) ? cwdLegacyPath :
+                   fs.existsSync(installClientsPath) ? installClientsPath :
+                   fs.existsSync(installLegacyPath) ? installLegacyPath :
+                   examplePath;
 
 if (!fs.existsSync(providerPath)) {
-  console.error(`Provider config not found: ${providerPath}`);
+  console.error(`Provider config not found. Please create provider.json in ${cwd}`);
+  console.error(`See provider.example.json for the expected format.`);
   process.exit(1);
 }
 if (!fs.existsSync(clientPath)) {
-  console.error(`Client config not found: ${clientPath}`);
+  console.error(`Client config not found: ${clientFolder}`);
+  console.error(`Searched in: ${cwd}/clients/${clientFolder}/, ${cwd}/${clientFolder}/`);
   process.exit(1);
 }
 
@@ -54,19 +70,21 @@ const translationsPath = path.join(__dirname, 'translations', `${lang}.json`);
 const translations: Translations = JSON.parse(fs.readFileSync(translationsPath, 'utf8'));
 
 // Generate dates
-let now = new Date();
+let billingMonth = new Date();
+// Default to previous month since we always charge for the previous month
+billingMonth = new Date(billingMonth.getFullYear(), billingMonth.getMonth() - 1, 28);
 if (monthArg) {
   const [month, year] = monthArg.replace('--month=', '').split('-');
-  now = new Date(parseInt(year), parseInt(month) - 1, 28);
+  billingMonth = new Date(parseInt(year), parseInt(month) - 1, 28);
 }
 
 const invoiceDate = formatDate(new Date(), lang);
-const lastOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-const monthName = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+const lastOfMonth = new Date(billingMonth.getFullYear(), billingMonth.getMonth() + 1, 0);
+const monthName = billingMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
 let servicePeriod: string;
 if (lang === 'de') {
-  servicePeriod = now.toLocaleDateString('de-DE', { month: 'short', year: 'numeric' });
+  servicePeriod = billingMonth.toLocaleDateString('de-DE', { month: 'short', year: 'numeric' });
 } else {
   servicePeriod = monthName;
 }
@@ -86,18 +104,14 @@ if (billingType === 'fixed') {
   totalAmount = quantity * rate;
 }
 
-// Build service description (append month for hourly/daily)
+// Build service description (append month for all billing types)
 const baseDescription = getServiceDescription(client.service.description, lang);
-const serviceDescription = billingType === 'fixed'
-  ? baseDescription
-  : `${baseDescription}, ${monthName}`;
+const serviceDescription = `${baseDescription}, ${monthName}`;
 
 // Build email service description (may use different language)
 const emailLang = client.emailLanguage || lang;
 const emailBaseDescription = getServiceDescription(client.service.description, emailLang);
-const emailServiceDescription = billingType === 'fixed'
-  ? emailBaseDescription
-  : `${emailBaseDescription}, ${monthName}`;
+const emailServiceDescription = `${emailBaseDescription}, ${monthName}`;
 
 // Get bank details (client-specific or default)
 const bankDetails = client.bank || provider.bank;
@@ -127,7 +141,7 @@ const doc = buildDocument(ctx);
 
 // Generate output filenames
 const outputDir = path.dirname(clientPath);
-const monthStr = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).replace(' ', '_');
+const monthStr = billingMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).replace(' ', '_');
 const baseFilename = `${translations.filePrefix}_${invoiceNumber}_${monthStr}`;
 const docxPath = path.join(outputDir, `${baseFilename}.docx`);
 const pdfPath = path.join(outputDir, `${baseFilename}.pdf`);

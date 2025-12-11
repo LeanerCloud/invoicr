@@ -4,7 +4,9 @@ import * as path from 'path';
 import * as readline from 'readline';
 import { Client } from './types';
 
-const rootDir = path.join(__dirname, '..');
+// Check current working directory first, then fall back to installation directory
+const cwd = process.cwd();
+const installDir = path.join(__dirname, '..');
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -28,15 +30,23 @@ async function main() {
   let template: Partial<Client> = {};
 
   if (templateName) {
-    // Check examples folder first, then clients folder
-    const examplePath = path.join(rootDir, 'examples', `${templateName}.json`);
-    const clientPath = path.join(rootDir, 'clients', templateName, `${templateName}.json`);
+    // Check cwd first, then installation directory for templates
+    const cwdClientPath = path.join(cwd, 'clients', templateName, `${templateName}.json`);
+    const cwdLegacyPath = path.join(cwd, templateName, `${templateName}.json`);
+    const installExamplePath = path.join(installDir, 'examples', `${templateName}.json`);
+    const installClientPath = path.join(installDir, 'clients', templateName, `${templateName}.json`);
 
-    if (fs.existsSync(examplePath)) {
-      template = JSON.parse(fs.readFileSync(examplePath, 'utf8'));
+    if (fs.existsSync(cwdClientPath)) {
+      template = JSON.parse(fs.readFileSync(cwdClientPath, 'utf8'));
+      console.log(`Using client "${templateName}" as template\n`);
+    } else if (fs.existsSync(cwdLegacyPath)) {
+      template = JSON.parse(fs.readFileSync(cwdLegacyPath, 'utf8'));
+      console.log(`Using client "${templateName}" as template\n`);
+    } else if (fs.existsSync(installExamplePath)) {
+      template = JSON.parse(fs.readFileSync(installExamplePath, 'utf8'));
       console.log(`Using example template "${templateName}"\n`);
-    } else if (fs.existsSync(clientPath)) {
-      template = JSON.parse(fs.readFileSync(clientPath, 'utf8'));
+    } else if (fs.existsSync(installClientPath)) {
+      template = JSON.parse(fs.readFileSync(installClientPath, 'utf8'));
       console.log(`Using client "${templateName}" as template\n`);
     } else {
       console.error(`Template not found: ${templateName}`);
@@ -54,7 +64,8 @@ async function main() {
     process.exit(1);
   }
 
-  const clientsDir = path.join(rootDir, 'clients');
+  // Create clients in current working directory
+  const clientsDir = path.join(cwd, 'clients');
   const clientDir = path.join(clientsDir, folderName);
   if (fs.existsSync(clientDir)) {
     console.error(`Client folder already exists: ${folderName}`);
