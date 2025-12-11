@@ -1,6 +1,6 @@
 {
   "name": "invoicr",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "CLI tool to generate DOCX/PDF invoices from JSON configs with email integration",
   "type": "module",
   "main": "dist/invoice.js",
@@ -40,6 +40,12 @@
     "type": "git",
     "url": "git+https://github.com/LeanerCloud/invoicr.git"
   },
+  "files": [
+    "dist",
+    "examples",
+    "README.md",
+    "LICENSE"
+  ],
   "engines": {
     "node": ">=18.0.0"
   },
