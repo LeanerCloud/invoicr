@@ -120,3 +120,51 @@ export function buildSummaryOutput(successCount: number, errorCount: number, isD
 
   return lines.join('\n');
 }
+
+/**
+ * Parse CLI arguments into BulkConfig
+ * Format: client1:qty1 client2:qty2 [--month=MM-YYYY] [--email]
+ * Example: acme:40 other:10 --month=11-2025 --email
+ */
+export function parseCliArgs(args: string[]): { config: BulkConfig; isDryRun: boolean } | { error: string } {
+  const invoices: BulkInvoice[] = [];
+  let globalMonth: string | undefined;
+  let globalEmail = false;
+  let isDryRun = false;
+
+  for (const arg of args) {
+    if (arg === '--dry-run') {
+      isDryRun = true;
+    } else if (arg === '--email') {
+      globalEmail = true;
+    } else if (arg.startsWith('--month=')) {
+      globalMonth = arg.replace('--month=', '');
+    } else if (arg.includes(':')) {
+      // Parse client:quantity format
+      const parts = arg.split(':');
+      if (parts.length !== 2) {
+        return { error: `Invalid format "${arg}". Use client:quantity (e.g., acme:40)` };
+      }
+      const [client, qtyStr] = parts;
+      const quantity = parseFloat(qtyStr);
+      if (!client || isNaN(quantity) || quantity <= 0) {
+        return { error: `Invalid entry "${arg}". Client must be non-empty and quantity must be positive` };
+      }
+      invoices.push({ client, quantity });
+    } else if (!arg.startsWith('--')) {
+      return { error: `Invalid argument "${arg}". Use client:quantity format (e.g., acme:40)` };
+    }
+  }
+
+  if (invoices.length === 0) {
+    return { error: 'No invoices specified. Use client:quantity format (e.g., acme:40 other:10)' };
+  }
+
+  // Apply global options to all invoices
+  for (const inv of invoices) {
+    if (globalMonth) inv.month = globalMonth;
+    if (globalEmail) inv.email = true;
+  }
+
+  return { config: { invoices }, isDryRun };
+}

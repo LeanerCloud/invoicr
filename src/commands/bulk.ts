@@ -8,7 +8,9 @@ import {
   buildInvoiceArgs,
   buildInvoiceCommand,
   formatProgress,
-  buildSummaryOutput
+  buildSummaryOutput,
+  parseCliArgs,
+  BulkConfig
 } from './bulk-utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -20,12 +22,24 @@ const args = process.argv.slice(2);
 // Check for help
 if (args.includes('--help') || args.includes('-h') || args.length === 0) {
   console.log('Usage: invoicr-bulk <config-file> [options]');
+  console.log('       invoicr-bulk client1:qty1 client2:qty2 [...] [options]');
   console.log('');
-  console.log('Generate multiple invoices from a configuration file');
+  console.log('Generate multiple invoices from a config file or CLI arguments');
   console.log('');
   console.log('Options:');
   console.log('  --dry-run         Preview all invoices without generating');
+  console.log('  --month=MM-YYYY   Set billing month for all invoices (CLI mode)');
+  console.log('  --email           Create email drafts for all invoices (CLI mode)');
   console.log('  --help, -h        Show this help message');
+  console.log('');
+  console.log('CLI mode examples:');
+  console.log('  invoicr-bulk acme:40 other:10');
+  console.log('  invoicr-bulk acme:40 other:10 --month=11-2025 --email');
+  console.log('  invoicr-bulk acme:40 --dry-run');
+  console.log('');
+  console.log('Config file mode examples:');
+  console.log('  invoicr-bulk monthly-invoices.json');
+  console.log('  invoicr-bulk batch.json --dry-run');
   console.log('');
   console.log('Config file format (JSON):');
   console.log('  {');
@@ -35,59 +49,61 @@ if (args.includes('--help') || args.includes('-h') || args.length === 0) {
   console.log('      { "client": "acme-fixed", "quantity": 15000, "email": true }');
   console.log('    ]');
   console.log('  }');
-  console.log('');
-  console.log('Each invoice entry can have:');
-  console.log('  client    (required) Client folder name');
-  console.log('  quantity  (required) Quantity/amount for invoice');
-  console.log('  month     (optional) Billing month (MM-YYYY format)');
-  console.log('  email     (optional) Create email draft (true/false)');
-  console.log('');
-  console.log('Examples:');
-  console.log('  invoicr-bulk monthly-invoices.json');
-  console.log('  invoicr-bulk batch.json --dry-run');
   process.exit(args.length === 0 ? 1 : 0);
 }
 
-// Get config file path
-const configFile = args.find(a => !a.startsWith('--'));
-const isDryRun = args.includes('--dry-run');
+// Determine mode: file or CLI args
+const firstArg = args.find(a => !a.startsWith('--'));
+const isFileMode = firstArg && (firstArg.endsWith('.json') || fs.existsSync(firstArg));
 
-if (!configFile) {
-  console.error('Error: config file is required');
-  process.exit(1);
-}
+let config: BulkConfig;
+let isDryRun: boolean;
 
-// Resolve config path
-const configPath = path.isAbsolute(configFile) ? configFile : path.join(process.cwd(), configFile);
+if (isFileMode) {
+  // File mode
+  const configFile = firstArg!;
+  isDryRun = args.includes('--dry-run');
 
-if (!fs.existsSync(configPath)) {
-  console.error(`Error: config file not found: ${configPath}`);
-  process.exit(1);
-}
+  const configPath = path.isAbsolute(configFile) ? configFile : path.join(process.cwd(), configFile);
 
-// Load and validate config
-let configData: unknown;
-try {
-  const rawData = fs.readFileSync(configPath, 'utf8');
-  configData = JSON.parse(rawData);
-} catch (err) {
-  console.error(`Error: failed to parse config file: ${err}`);
-  process.exit(1);
-}
-
-const validationResult = validateBulkConfig(configData);
-if ('errors' in validationResult) {
-  for (const error of validationResult.errors) {
-    if (error.index >= 0) {
-      console.error(`Error: invoice ${error.index + 1}: ${error.message}`);
-    } else {
-      console.error(`Error: ${error.message}`);
-    }
+  if (!fs.existsSync(configPath)) {
+    console.error(`Error: config file not found: ${configPath}`);
+    process.exit(1);
   }
-  process.exit(1);
-}
 
-const config = validationResult.config;
+  let configData: unknown;
+  try {
+    const rawData = fs.readFileSync(configPath, 'utf8');
+    configData = JSON.parse(rawData);
+  } catch (err) {
+    console.error(`Error: failed to parse config file: ${err}`);
+    process.exit(1);
+  }
+
+  const validationResult = validateBulkConfig(configData);
+  if ('errors' in validationResult) {
+    for (const error of validationResult.errors) {
+      if (error.index >= 0) {
+        console.error(`Error: invoice ${error.index + 1}: ${error.message}`);
+      } else {
+        console.error(`Error: ${error.message}`);
+      }
+    }
+    process.exit(1);
+  }
+
+  config = validationResult.config;
+} else {
+  // CLI args mode
+  const parseResult = parseCliArgs(args);
+  if ('error' in parseResult) {
+    console.error(`Error: ${parseResult.error}`);
+    process.exit(1);
+  }
+
+  config = parseResult.config;
+  isDryRun = parseResult.isDryRun;
+}
 
 console.log(`Processing ${config.invoices.length} invoice(s)...`);
 console.log('');

@@ -11,9 +11,11 @@ A TypeScript CLI tool that generates DOCX and PDF invoices from JSON configurati
 - Email drafts with PDF attachment (macOS Mail.app)
 - Separate email language from invoice language
 - Interactive client creation wizard
-- **NEW in 1.5.0:**
+- **NEW in 1.6.0:**
+  - Bulk generation via CLI args: `invoicr-bulk acme:40 other:10`
+- **In 1.5.0:**
   - ESM modules (modern JavaScript module system)
-  - Unit tests with Vitest (203 tests, 96% coverage)
+  - Unit tests with Vitest (217 tests, 96% coverage)
 - **In 1.4.0:**
   - Custom invoice templates (default, minimal, detailed)
   - `invoicr-export` - Export invoice history to CSV/JSON
@@ -376,11 +378,17 @@ invoicr-export --output=invoices.csv     # Export to file
 
 ### Bulk Generation (1.4.0+)
 
-Generate multiple invoices from a configuration file:
+Generate multiple invoices at once using CLI arguments or a config file:
 
 ```bash
+# CLI mode (1.6.0+)
+invoicr-bulk acme:40 other:10
+invoicr-bulk acme:40 other:10 --month=11-2025 --email
+invoicr-bulk acme:40 other:10 --dry-run
+
+# Config file mode
 invoicr-bulk batch.json
-invoicr-bulk batch.json --dry-run        # Preview without generating
+invoicr-bulk batch.json --dry-run
 ```
 
 Config file format:

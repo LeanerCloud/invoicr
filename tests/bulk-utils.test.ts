@@ -5,6 +5,7 @@ import {
   buildInvoiceCommand,
   formatProgress,
   buildSummaryOutput,
+  parseCliArgs,
   BulkInvoice
 } from '../src/commands/bulk-utils.js';
 
@@ -206,5 +207,122 @@ describe('buildSummaryOutput', () => {
     expect(result).toContain('Success: 3');
     expect(result).toContain('Errors:  2');
     expect(result).toContain('dry-run mode');
+  });
+});
+
+describe('parseCliArgs', () => {
+  it('should parse single client:quantity', () => {
+    const result = parseCliArgs(['acme:40']);
+    expect('config' in result).toBe(true);
+    if ('config' in result) {
+      expect(result.config.invoices.length).toBe(1);
+      expect(result.config.invoices[0].client).toBe('acme');
+      expect(result.config.invoices[0].quantity).toBe(40);
+      expect(result.isDryRun).toBe(false);
+    }
+  });
+
+  it('should parse multiple client:quantity pairs', () => {
+    const result = parseCliArgs(['acme:40', 'other:10', 'third:5.5']);
+    expect('config' in result).toBe(true);
+    if ('config' in result) {
+      expect(result.config.invoices.length).toBe(3);
+      expect(result.config.invoices[0]).toEqual({ client: 'acme', quantity: 40 });
+      expect(result.config.invoices[1]).toEqual({ client: 'other', quantity: 10 });
+      expect(result.config.invoices[2]).toEqual({ client: 'third', quantity: 5.5 });
+    }
+  });
+
+  it('should parse --dry-run flag', () => {
+    const result = parseCliArgs(['acme:40', '--dry-run']);
+    expect('config' in result).toBe(true);
+    if ('config' in result) {
+      expect(result.isDryRun).toBe(true);
+    }
+  });
+
+  it('should apply global --month to all invoices', () => {
+    const result = parseCliArgs(['acme:40', 'other:10', '--month=11-2025']);
+    expect('config' in result).toBe(true);
+    if ('config' in result) {
+      expect(result.config.invoices[0].month).toBe('11-2025');
+      expect(result.config.invoices[1].month).toBe('11-2025');
+    }
+  });
+
+  it('should apply global --email to all invoices', () => {
+    const result = parseCliArgs(['acme:40', 'other:10', '--email']);
+    expect('config' in result).toBe(true);
+    if ('config' in result) {
+      expect(result.config.invoices[0].email).toBe(true);
+      expect(result.config.invoices[1].email).toBe(true);
+    }
+  });
+
+  it('should handle all options together', () => {
+    const result = parseCliArgs(['acme:40', '--month=11-2025', '--email', '--dry-run']);
+    expect('config' in result).toBe(true);
+    if ('config' in result) {
+      expect(result.config.invoices[0].client).toBe('acme');
+      expect(result.config.invoices[0].quantity).toBe(40);
+      expect(result.config.invoices[0].month).toBe('11-2025');
+      expect(result.config.invoices[0].email).toBe(true);
+      expect(result.isDryRun).toBe(true);
+    }
+  });
+
+  it('should return error for empty args', () => {
+    const result = parseCliArgs([]);
+    expect('error' in result).toBe(true);
+    if ('error' in result) {
+      expect(result.error).toContain('No invoices specified');
+    }
+  });
+
+  it('should return error for invalid format (no colon)', () => {
+    const result = parseCliArgs(['acme40']);
+    expect('error' in result).toBe(true);
+    if ('error' in result) {
+      expect(result.error).toContain('client:quantity');
+    }
+  });
+
+  it('should return error for invalid quantity', () => {
+    const result = parseCliArgs(['acme:abc']);
+    expect('error' in result).toBe(true);
+    if ('error' in result) {
+      expect(result.error).toContain('Invalid entry');
+    }
+  });
+
+  it('should return error for zero quantity', () => {
+    const result = parseCliArgs(['acme:0']);
+    expect('error' in result).toBe(true);
+  });
+
+  it('should return error for negative quantity', () => {
+    const result = parseCliArgs(['acme:-10']);
+    expect('error' in result).toBe(true);
+  });
+
+  it('should return error for empty client name', () => {
+    const result = parseCliArgs([':40']);
+    expect('error' in result).toBe(true);
+  });
+
+  it('should return error for too many colons', () => {
+    const result = parseCliArgs(['acme:40:extra']);
+    expect('error' in result).toBe(true);
+    if ('error' in result) {
+      expect(result.error).toContain('Invalid format');
+    }
+  });
+
+  it('should ignore unknown flags starting with --', () => {
+    const result = parseCliArgs(['acme:40', '--unknown-flag']);
+    expect('config' in result).toBe(true);
+    if ('config' in result) {
+      expect(result.config.invoices.length).toBe(1);
+    }
   });
 });
