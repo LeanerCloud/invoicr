@@ -11,6 +11,13 @@ A TypeScript CLI tool that generates DOCX and PDF invoices from JSON configurati
 - Email drafts with PDF attachment (macOS Mail.app)
 - Separate email language from invoice language
 - Interactive client creation wizard
+- **NEW in 1.2.0:**
+  - `invoicr-init` - Interactive setup wizard for new workspaces
+  - `invoicr-list` - List all available clients
+  - `--dry-run` - Preview invoice without generating files
+  - Due date calculation based on payment terms
+  - Invoice history tracking (history.json per client)
+  - Config validation with helpful error messages
 
 ## Prerequisites
 
@@ -60,6 +67,7 @@ npm run invoice -- <client-folder> <quantity> [options]
 | `--month=MM-YYYY` | Generate invoice for a specific month |
 | `--email` | Create email draft in Mail.app with PDF attached |
 | `--test` | Send email to provider instead of client (for testing) |
+| `--dry-run` | Preview invoice details without generating files |
 
 #### Examples
 
@@ -78,8 +86,31 @@ invoicr acme-daily 2 --email
 # Test email (sends to your email instead of client)
 invoicr acme-daily 2 --email --test
 
+# Preview invoice without generating files
+invoicr acme-hourly 40 --dry-run
+
 # Use your own client (after creating with invoicr-new)
 invoicr myclient 10
+```
+
+### Initialize Workspace
+
+Set up a new invoicing workspace with provider details:
+
+```bash
+invoicr-init
+```
+
+This interactive wizard will:
+1. Create `provider.json` with your business details
+2. Optionally create a sample client
+
+### List Clients
+
+View all available clients in your workspace:
+
+```bash
+invoicr-list
 ```
 
 ### Create New Client
@@ -123,8 +154,16 @@ invoicr/
 │   ├── create-client.ts    # Client creation wizard
 │   ├── document.ts         # Document generation
 │   ├── email.ts            # Email functionality
+│   ├── history.ts          # Invoice history tracking
 │   ├── types.ts            # TypeScript interfaces
 │   ├── utils.ts            # Formatting utilities
+│   ├── schemas/            # Zod validation schemas
+│   │   ├── provider.ts
+│   │   ├── client.ts
+│   │   └── index.ts
+│   ├── commands/           # CLI commands
+│   │   ├── init.ts         # invoicr-init
+│   │   └── list.ts         # invoicr-list
 │   └── translations/
 │       ├── de.json         # German translations
 │       └── en.json         # English translations
@@ -134,7 +173,8 @@ invoicr/
 │   └── acme-fixed.json     # Fixed amount example
 ├── clients/                # Your client configurations
 │   └── <client>/
-│       └── <client>.json
+│       ├── <client>.json
+│       └── history.json    # Invoice history (auto-generated)
 ├── provider.json           # Your business details (create from example)
 ├── provider.example.json   # Example provider config
 └── package.json
@@ -331,6 +371,8 @@ npm run build
 | `npm run build` | Compile TypeScript to JavaScript |
 | `npm run invoice` | Generate an invoice |
 | `npm run new-client` | Create a new client interactively |
+| `npm run init` | Initialize a new workspace |
+| `npm run list` | List available clients |
 | `npm run dev` | Run invoice.ts directly with ts-node |
 
 ## License

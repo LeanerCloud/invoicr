@@ -4,28 +4,48 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
 import { Provider, Client, Translations, InvoiceContext } from './types';
-import { formatDate, formatCurrency, getServiceDescription } from './utils';
+import { formatDate, formatCurrency, getServiceDescription, calculateDueDate } from './utils';
 import { buildDocument } from './document';
 import { createEmail } from './email';
+import { validateProvider, validateClient } from './schemas';
+import { saveToHistory } from './history';
 
 // Parse command line arguments
 const args = process.argv.slice(2);
-if (args.length < 2) {
-  console.error('Usage: npm run invoice <client-folder> <quantity> [--month=MM-YYYY] [--email] [--test]');
+
+// Check for --dry-run flag
+const isDryRun = args.includes('--dry-run');
+
+// Filter out flags to get positional arguments
+const positionalArgs = args.filter(a => !a.startsWith('--'));
+
+if (positionalArgs.length < 2) {
+  console.error('Usage: invoicr <client-folder> <quantity> [--month=MM-YYYY] [--email] [--test] [--dry-run]');
+  console.error('');
+  console.error('Options:');
+  console.error('  --month=MM-YYYY  Specify billing month (default: previous month)');
+  console.error('  --email          Create email draft with invoice attached');
+  console.error('  --test           Send test email to provider instead of client');
+  console.error('  --dry-run        Preview invoice without generating files');
   console.error('');
   console.error('Examples:');
-  console.error('  npm run invoice -- acme-hourly 40');
-  console.error('  npm run invoice -- acme-daily 5 --month=10-2025');
-  console.error('  npm run invoice -- acme-hourly 8 --email');
-  console.error('  npm run invoice -- acme-daily 2 --email --test');
+  console.error('  invoicr acme-hourly 40');
+  console.error('  invoicr acme-daily 5 --month=10-2025');
+  console.error('  invoicr acme-hourly 8 --email');
+  console.error('  invoicr acme-daily 2 --dry-run');
   process.exit(1);
 }
 
-const clientFolder = args[0];
-const quantity = parseFloat(args[1]);
+const clientFolder = positionalArgs[0];
+const quantity = parseFloat(positionalArgs[1]);
 const monthArg = args.find(a => a.startsWith('--month='));
 const shouldEmail = args.includes('--email');
 const isTestMode = args.includes('--test');
+
+if (isNaN(quantity) || quantity <= 0) {
+  console.error('Error: quantity must be a positive number');
+  process.exit(1);
+}
 
 // Load configuration files
 // Check current working directory first, then fall back to installation directory
@@ -53,16 +73,43 @@ const clientPath = fs.existsSync(cwdClientsPath) ? cwdClientsPath :
 if (!fs.existsSync(providerPath)) {
   console.error(`Provider config not found. Please create provider.json in ${cwd}`);
   console.error(`See provider.example.json for the expected format.`);
+  console.error(`\nRun 'invoicr-init' to set up your invoicing workspace.`);
   process.exit(1);
 }
 if (!fs.existsSync(clientPath)) {
   console.error(`Client config not found: ${clientFolder}`);
   console.error(`Searched in: ${cwd}/clients/${clientFolder}/, ${cwd}/${clientFolder}/`);
+  console.error(`\nRun 'invoicr-list' to see available clients.`);
   process.exit(1);
 }
 
-const provider: Provider = JSON.parse(fs.readFileSync(providerPath, 'utf8'));
-const client: Client = JSON.parse(fs.readFileSync(clientPath, 'utf8'));
+// Load and validate configurations
+let provider: Provider;
+let client: Client;
+
+try {
+  const providerData = JSON.parse(fs.readFileSync(providerPath, 'utf8'));
+  provider = validateProvider(providerData);
+} catch (err) {
+  if (err instanceof Error) {
+    console.error(err.message);
+  } else {
+    console.error('Failed to load provider.json');
+  }
+  process.exit(1);
+}
+
+try {
+  const clientData = JSON.parse(fs.readFileSync(clientPath, 'utf8'));
+  client = validateClient(clientData);
+} catch (err) {
+  if (err instanceof Error) {
+    console.error(err.message);
+  } else {
+    console.error('Failed to load client config');
+  }
+  process.exit(1);
+}
 
 // Load translations
 const lang = client.language || 'de';
@@ -78,9 +125,17 @@ if (monthArg) {
   billingMonth = new Date(parseInt(year), parseInt(month) - 1, 28);
 }
 
-const invoiceDate = formatDate(new Date(), lang);
+const invoiceDateObj = new Date();
+const invoiceDate = formatDate(invoiceDateObj, lang);
 const lastOfMonth = new Date(billingMonth.getFullYear(), billingMonth.getMonth() + 1, 0);
 const monthName = billingMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+// Calculate due date if payment terms are set
+let dueDate: string | undefined;
+if (client.paymentTermsDays && client.paymentTermsDays > 0) {
+  const dueDateObj = calculateDueDate(invoiceDateObj, client.paymentTermsDays);
+  dueDate = formatDate(dueDateObj, lang);
+}
 
 let servicePeriod: string;
 if (lang === 'de') {
@@ -123,6 +178,7 @@ const ctx: InvoiceContext = {
   translations,
   invoiceNumber,
   invoiceDate,
+  dueDate,
   servicePeriod,
   monthName,
   totalAmount,
@@ -136,15 +192,43 @@ const ctx: InvoiceContext = {
   bankDetails
 };
 
-// Build document
-const doc = buildDocument(ctx);
-
 // Generate output filenames
 const outputDir = path.dirname(clientPath);
 const monthStr = billingMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).replace(' ', '_');
 const baseFilename = `${translations.filePrefix}_${invoiceNumber}_${monthStr}`;
 const docxPath = path.join(outputDir, `${baseFilename}.docx`);
 const pdfPath = path.join(outputDir, `${baseFilename}.pdf`);
+
+// Dry run - show summary and exit
+if (isDryRun) {
+  console.log('=== DRY RUN - Invoice Preview ===\n');
+  console.log(`Client:         ${client.name}`);
+  console.log(`Invoice Number: ${invoiceNumber}`);
+  console.log(`Invoice Date:   ${invoiceDate}`);
+  if (dueDate) {
+    console.log(`Due Date:       ${dueDate}`);
+  }
+  console.log(`Service Period: ${servicePeriod}`);
+  console.log(`Description:    ${serviceDescription}`);
+  console.log('');
+  const unitLabel = billingType === 'hourly' ? 'hour(s)' : billingType === 'daily' ? 'day(s)' : 'unit(s)';
+  if (billingType !== 'fixed') {
+    console.log(`Quantity:       ${quantity} ${unitLabel}`);
+    console.log(`Rate:           ${formatCurrency(rate, currency, lang)}`);
+  }
+  console.log(`Total Amount:   ${formatCurrency(totalAmount, currency, lang)}`);
+  console.log('');
+  console.log(`Output DOCX:    ${docxPath}`);
+  console.log(`Output PDF:     ${pdfPath}`);
+  if (shouldEmail) {
+    console.log(`Email:          Would send to ${client.email?.to?.join(', ') || 'N/A'}`);
+  }
+  console.log('\n=== No files were generated ===');
+  process.exit(0);
+}
+
+// Build document
+const doc = buildDocument(ctx);
 
 // Generate DOCX and PDF
 Packer.toBuffer(doc).then(buffer => {
@@ -159,6 +243,18 @@ Packer.toBuffer(doc).then(buffer => {
     console.error('PDF conversion failed. Make sure LibreOffice is installed.');
     console.error('Install with: brew install --cask libreoffice');
   }
+
+  // Save to history
+  saveToHistory(outputDir, {
+    invoiceNumber,
+    date: invoiceDateObj.toISOString().split('T')[0],
+    month: monthName,
+    quantity,
+    rate,
+    totalAmount,
+    currency,
+    pdfPath
+  });
 
   // Update next invoice number
   client.nextInvoiceNumber++;

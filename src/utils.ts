@@ -37,3 +37,19 @@ export function getTranslatedCountry(country: string | { de?: string; en?: strin
   return country[lang as 'de' | 'en'] || country.de || country.en || '';
 }
 
+/**
+ * Calculate due date by adding days to a base date
+ */
+export function calculateDueDate(baseDate: Date, days: number): Date {
+  const dueDate = new Date(baseDate);
+  dueDate.setDate(dueDate.getDate() + days);
+  return dueDate;
+}
+
+/**
+ * Format a due date based on language
+ */
+export function formatDueDate(date: Date, lang: string): string {
+  return formatDate(date, lang);
+}
+

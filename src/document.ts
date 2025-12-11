@@ -172,6 +172,24 @@ export function buildDocument(ctx: InvoiceContext): Document {
     })
   ];
 
+  // Add due date if available
+  if (ctx.dueDate) {
+    invoiceDetailsRows.push(new TableRow({
+      children: [
+        new TableCell({
+          borders: noBorders,
+          width: { size: 2400, type: WidthType.DXA },
+          children: [new Paragraph({ children: [new TextRun({ text: t.dueDate, bold: true })] })]
+        }),
+        new TableCell({
+          borders: noBorders,
+          width: { size: 3000, type: WidthType.DXA },
+          children: [new Paragraph({ children: [new TextRun(ctx.dueDate)] })]
+        })
+      ]
+    }));
+  }
+
   // Add service period for hourly/daily
   if (billingType !== 'fixed') {
     invoiceDetailsRows.push(new TableRow({
