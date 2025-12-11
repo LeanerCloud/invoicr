@@ -1,0 +1,50 @@
+{
+  "name": "Acme Enterprise Solutions",
+  "address": {
+    "street": "456 Enterprise Boulevard",
+    "city": "San Francisco, CA 94102",
+    "country": "USA"
+  },
+  "language": "en",
+  "invoicePrefix": "AES",
+  "nextInvoiceNumber": 1,
+  "projectReference": "Enterprise Platform Modernization",
+  "service": {
+    "description": "Platform Development",
+    "billingType": "hourly",
+    "rate": 175,
+    "currency": "USD"
+  },
+  "lineItems": [
+    {
+      "description": "Backend Development",
+      "quantity": 40,
+      "rate": 175,
+      "billingType": "hourly"
+    },
+    {
+      "description": "Frontend Development",
+      "quantity": 32,
+      "rate": 150,
+      "billingType": "hourly"
+    },
+    {
+      "description": "Code Review & Architecture Consulting",
+      "quantity": 8,
+      "rate": 200,
+      "billingType": "hourly"
+    },
+    {
+      "description": "Cloud Infrastructure Setup",
+      "quantity": 2500,
+      "rate": 1,
+      "billingType": "fixed"
+    }
+  ],
+  "taxRate": 0.0875,
+  "paymentTermsDays": 30,
+  "email": {
+    "to": ["Sarah Johnson <sarah@acme-enterprise.com>"],
+    "cc": ["Finance <finance@acme-enterprise.com>"]
+  }
+}

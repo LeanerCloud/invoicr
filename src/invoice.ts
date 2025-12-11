@@ -3,7 +3,7 @@ import { Packer } from 'docx';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
-import { Provider, Client, Translations, InvoiceContext } from './types';
+import { Provider, Client, Translations, InvoiceContext, ResolvedLineItem } from './types';
 import { formatDate, formatCurrency, getServiceDescription, calculateDueDate } from './utils';
 import { buildDocument } from './document';
 import { createEmail } from './email';
@@ -151,13 +151,45 @@ const invoiceNumber = `${client.invoicePrefix}-${client.nextInvoiceNumber}`;
 const billingType = client.service.billingType || 'daily';
 const currency = client.service.currency || 'EUR';
 const rate = client.service.rate || client.service.dailyRate || 0;
-let totalAmount: number;
+const taxRate = client.taxRate || 0;
 
-if (billingType === 'fixed') {
-  totalAmount = quantity;
+// Build line items (from config or from service + CLI quantity)
+let lineItems: ResolvedLineItem[];
+
+if (client.lineItems && client.lineItems.length > 0) {
+  // Multi-line item mode: use line items from config
+  lineItems = client.lineItems.map(item => {
+    const itemRate = item.rate;
+    const itemTotal = item.billingType === 'fixed' ? item.quantity : item.quantity * itemRate;
+    return {
+      description: getServiceDescription(item.description, lang),
+      quantity: item.quantity,
+      rate: itemRate,
+      billingType: item.billingType,
+      total: itemTotal
+    };
+  });
 } else {
-  totalAmount = quantity * rate;
+  // Single-service mode: build from service + CLI quantity
+  let itemTotal: number;
+  if (billingType === 'fixed') {
+    itemTotal = quantity;
+  } else {
+    itemTotal = quantity * rate;
+  }
+  lineItems = [{
+    description: getServiceDescription(client.service.description, lang),
+    quantity,
+    rate,
+    billingType,
+    total: itemTotal
+  }];
 }
+
+// Calculate subtotal, tax, and total
+const subtotal = lineItems.reduce((sum, item) => sum + item.total, 0);
+const taxAmount = subtotal * taxRate;
+const totalAmount = subtotal + taxAmount;
 
 // Build service description (append month for all billing types)
 const baseDescription = getServiceDescription(client.service.description, lang);
@@ -189,7 +221,11 @@ const ctx: InvoiceContext = {
   lang,
   serviceDescription,
   emailServiceDescription,
-  bankDetails
+  bankDetails,
+  lineItems,
+  subtotal,
+  taxAmount,
+  taxRate
 };
 
 // Generate output filenames
@@ -209,12 +245,24 @@ if (isDryRun) {
     console.log(`Due Date:       ${dueDate}`);
   }
   console.log(`Service Period: ${servicePeriod}`);
-  console.log(`Description:    ${serviceDescription}`);
   console.log('');
-  const unitLabel = billingType === 'hourly' ? 'hour(s)' : billingType === 'daily' ? 'day(s)' : 'unit(s)';
-  if (billingType !== 'fixed') {
-    console.log(`Quantity:       ${quantity} ${unitLabel}`);
-    console.log(`Rate:           ${formatCurrency(rate, currency, lang)}`);
+
+  // Show line items
+  console.log('Line Items:');
+  lineItems.forEach((item, index) => {
+    const unitLabel = item.billingType === 'hourly' ? 'hour(s)' : item.billingType === 'daily' ? 'day(s)' : '';
+    if (item.billingType === 'fixed') {
+      console.log(`  ${index + 1}. ${item.description}: ${formatCurrency(item.total, currency, lang)}`);
+    } else {
+      console.log(`  ${index + 1}. ${item.description}: ${item.quantity} ${unitLabel} × ${formatCurrency(item.rate, currency, lang)} = ${formatCurrency(item.total, currency, lang)}`);
+    }
+  });
+  console.log('');
+
+  // Show totals
+  if (taxRate > 0) {
+    console.log(`Subtotal:       ${formatCurrency(subtotal, currency, lang)}`);
+    console.log(`Tax (${(taxRate * 100).toFixed(0)}%):       ${formatCurrency(taxAmount, currency, lang)}`);
   }
   console.log(`Total Amount:   ${formatCurrency(totalAmount, currency, lang)}`);
   console.log('');

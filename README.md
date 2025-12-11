@@ -11,7 +11,11 @@ A TypeScript CLI tool that generates DOCX and PDF invoices from JSON configurati
 - Email drafts with PDF attachment (macOS Mail.app)
 - Separate email language from invoice language
 - Interactive client creation wizard
-- **NEW in 1.2.0:**
+- **NEW in 1.3.0:**
+  - Multiple line items per invoice
+  - Tax/VAT calculation with configurable rates
+  - Logo support in invoice header
+- **In 1.2.0:**
   - `invoicr-init` - Interactive setup wizard for new workspaces
   - `invoicr-list` - List all available clients
   - `--dry-run` - Preview invoice without generating files
@@ -133,6 +137,7 @@ npm run new-client -- --from=acme-daily
 | `acme-hourly` | Hourly | USD, English, 30-day payment terms |
 | `acme-daily` | Daily | EUR, German invoice + English email, translated descriptions |
 | `acme-fixed` | Fixed | USD, custom bank account, payment upon receipt |
+| `acme-multiservice` | Mixed | Multiple line items with tax (1.3.0+) |
 
 The command will prompt for:
 - Client folder name
@@ -320,6 +325,39 @@ Create a folder for each client with a JSON file inside (e.g., `acme/acme.json`)
 | `service.description` | String or object with `de`/`en` translations |
 | `email.to` | Array of recipient email addresses |
 | `email.cc` | Optional. Array of CC email addresses |
+| `lineItems` | Optional. Array of line items (1.3.0+). Overrides single-service mode |
+| `taxRate` | Optional. Tax rate as decimal (e.g., 0.19 for 19%) (1.3.0+) |
+
+### Multiple Line Items (1.3.0+)
+
+For invoices with multiple services, use the `lineItems` array instead of the CLI quantity:
+
+```json
+{
+  "name": "Multi-Service Client",
+  "lineItems": [
+    { "description": "Development", "quantity": 40, "rate": 150, "billingType": "hourly" },
+    { "description": "Code Review", "quantity": 8, "rate": 175, "billingType": "hourly" },
+    { "description": "Setup Fee", "quantity": 500, "rate": 1, "billingType": "fixed" }
+  ],
+  "taxRate": 0.19
+}
+```
+
+When `lineItems` is present, the CLI quantity is ignored and all line items from the config are used.
+
+### Logo Support (1.3.0+)
+
+Add a logo to your invoices by specifying `logoPath` in `provider.json`:
+
+```json
+{
+  "name": "Your Company",
+  "logoPath": "logo.png"
+}
+```
+
+Supported formats: PNG, JPG, GIF, BMP. The path can be absolute or relative to the current working directory.
 
 ## Email Feature
 

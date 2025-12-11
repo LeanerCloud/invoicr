@@ -102,6 +102,15 @@ export interface Translations {
   email: EmailTranslations;
 }
 
+// Resolved line item with calculated total (for rendering)
+export interface ResolvedLineItem {
+  description: string;
+  quantity: number;
+  rate: number;
+  billingType: 'hourly' | 'daily' | 'fixed';
+  total: number;
+}
+
 export interface InvoiceContext {
   provider: Provider;
   client: Client;
@@ -120,9 +129,9 @@ export interface InvoiceContext {
   serviceDescription: string;
   emailServiceDescription: string;
   bankDetails: BankDetails;
-  // Future fields (1.3.0+)
-  lineItems?: LineItem[];
-  subtotal?: number;
-  taxAmount?: number;
-  taxRate?: number;
+  // Line items (1.3.0+)
+  lineItems: ResolvedLineItem[];
+  subtotal: number;
+  taxAmount: number;
+  taxRate: number;
 }

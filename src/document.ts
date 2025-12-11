@@ -9,7 +9,10 @@ import {
   BorderStyle,
   WidthType,
   ITableCellBorders,
+  ImageRun,
 } from 'docx';
+import * as fs from 'fs';
+import * as path from 'path';
 import { InvoiceContext } from './types';
 import { formatCurrency, formatQuantity, getTranslatedCountry } from './utils';
 
@@ -17,124 +20,266 @@ import { formatCurrency, formatQuantity, getTranslatedCountry } from './utils';
 const noBorder = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
 const noBorders: ITableCellBorders = { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder };
 
-function buildLineItemsTable(ctx: InvoiceContext): Table {
-  const { translations: t, billingType, serviceDescription, quantity, rate, totalAmount, currency, lang } = ctx;
+// Load logo image if it exists
+function loadLogo(logoPath: string | undefined): ImageRun | null {
+  if (!logoPath) return null;
 
-  if (billingType === 'fixed') {
-    return new Table({
-      columnWidths: [7200, 2400],
-      rows: [
-        new TableRow({
-          children: [
-            new TableCell({
-              borders: noBorders,
-              width: { size: 7200, type: WidthType.DXA },
-                            children: [new Paragraph({ children: [new TextRun({ text: t.description, bold: true })] })]
-            }),
-            new TableCell({
-              borders: noBorders,
-              width: { size: 2400, type: WidthType.DXA },
-                            children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: t.total, bold: true })] })]
-            })
-          ]
-        }),
-        new TableRow({
-          children: [
-            new TableCell({
-              borders: noBorders,
-              width: { size: 7200, type: WidthType.DXA },
-              children: [new Paragraph({ children: [new TextRun(serviceDescription)] })]
-            }),
-            new TableCell({
-              borders: noBorders,
-              width: { size: 2400, type: WidthType.DXA },
-              children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun(formatCurrency(totalAmount, currency, lang))] })]
-            })
-          ]
-        })
-      ]
+  try {
+    // Resolve path relative to cwd or absolute
+    const resolvedPath = path.isAbsolute(logoPath) ? logoPath : path.join(process.cwd(), logoPath);
+
+    if (!fs.existsSync(resolvedPath)) {
+      console.warn(`Logo file not found: ${resolvedPath}`);
+      return null;
+    }
+
+    const imageData = fs.readFileSync(resolvedPath);
+    const ext = path.extname(logoPath).toLowerCase();
+
+    // Determine image type
+    let type: 'png' | 'jpg' | 'gif' | 'bmp';
+    if (ext === '.png') type = 'png';
+    else if (ext === '.jpg' || ext === '.jpeg') type = 'jpg';
+    else if (ext === '.gif') type = 'gif';
+    else if (ext === '.bmp') type = 'bmp';
+    else {
+      console.warn(`Unsupported logo format: ${ext}`);
+      return null;
+    }
+
+    return new ImageRun({
+      data: imageData,
+      type,
+      transformation: {
+        width: 120,
+        height: 40
+      }
     });
+  } catch (err) {
+    console.warn(`Failed to load logo: ${err}`);
+    return null;
   }
+}
 
-  const quantityLabel = billingType === 'hourly' ? t.hours : t.days;
+function buildLineItemsTable(ctx: InvoiceContext): Table {
+  const { translations: t, lineItems, currency, lang, subtotal, taxAmount, taxRate, totalAmount, monthName } = ctx;
 
-  return new Table({
-    columnWidths: [4800, 1600, 1600, 1600],
-    rows: [
+  // Check if all items are fixed (simple 2-column layout)
+  const allFixed = lineItems.every(item => item.billingType === 'fixed');
+
+  if (allFixed) {
+    const rows: TableRow[] = [
+      // Header row
       new TableRow({
         children: [
           new TableCell({
             borders: noBorders,
-            width: { size: 4800, type: WidthType.DXA },
-                        children: [new Paragraph({ children: [new TextRun({ text: t.description, bold: true })] })]
+            width: { size: 7200, type: WidthType.DXA },
+            children: [new Paragraph({ children: [new TextRun({ text: t.description, bold: true })] })]
           }),
           new TableCell({
             borders: noBorders,
-            width: { size: 1600, type: WidthType.DXA },
-                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: quantityLabel, bold: true })] })]
-          }),
-          new TableCell({
-            borders: noBorders,
-            width: { size: 1600, type: WidthType.DXA },
-                        children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: t.unitPrice, bold: true })] })]
-          }),
-          new TableCell({
-            borders: noBorders,
-            width: { size: 1600, type: WidthType.DXA },
-                        children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: t.total, bold: true })] })]
-          })
-        ]
-      }),
-      new TableRow({
-        children: [
-          new TableCell({
-            borders: noBorders,
-            width: { size: 4800, type: WidthType.DXA },
-            children: [new Paragraph({ children: [new TextRun(serviceDescription)] })]
-          }),
-          new TableCell({
-            borders: noBorders,
-            width: { size: 1600, type: WidthType.DXA },
-            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun(formatQuantity(quantity, lang))] })]
-          }),
-          new TableCell({
-            borders: noBorders,
-            width: { size: 1600, type: WidthType.DXA },
-            children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun(formatCurrency(rate, currency, lang))] })]
-          }),
-          new TableCell({
-            borders: noBorders,
-            width: { size: 1600, type: WidthType.DXA },
-            children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun(formatCurrency(totalAmount, currency, lang))] })]
-          })
-        ]
-      }),
-      new TableRow({
-        children: [
-          new TableCell({
-            borders: noBorders,
-            width: { size: 4800, type: WidthType.DXA },
-            children: [new Paragraph({ children: [] })]
-          }),
-          new TableCell({
-            borders: noBorders,
-            width: { size: 1600, type: WidthType.DXA },
-            children: [new Paragraph({ children: [] })]
-          }),
-          new TableCell({
-            borders: noBorders,
-            width: { size: 1600, type: WidthType.DXA },
-                        children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: t.total, bold: true })] })]
-          }),
-          new TableCell({
-            borders: noBorders,
-            width: { size: 1600, type: WidthType.DXA },
-                        children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: formatCurrency(totalAmount, currency, lang), bold: true })] })]
+            width: { size: 2400, type: WidthType.DXA },
+            children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: t.total, bold: true })] })]
           })
         ]
       })
-    ]
+    ];
+
+    // Line item rows
+    lineItems.forEach(item => {
+      const description = `${item.description}, ${monthName}`;
+      rows.push(new TableRow({
+        children: [
+          new TableCell({
+            borders: noBorders,
+            width: { size: 7200, type: WidthType.DXA },
+            children: [new Paragraph({ children: [new TextRun(description)] })]
+          }),
+          new TableCell({
+            borders: noBorders,
+            width: { size: 2400, type: WidthType.DXA },
+            children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun(formatCurrency(item.total, currency, lang))] })]
+          })
+        ]
+      }));
+    });
+
+    // Add subtotal/tax/total rows if tax is applied
+    if (taxRate > 0) {
+      rows.push(
+        // Subtotal
+        new TableRow({
+          children: [
+            new TableCell({
+              borders: noBorders,
+              width: { size: 7200, type: WidthType.DXA },
+              children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: t.subtotal, bold: true })] })]
+            }),
+            new TableCell({
+              borders: noBorders,
+              width: { size: 2400, type: WidthType.DXA },
+              children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun(formatCurrency(subtotal, currency, lang))] })]
+            })
+          ]
+        }),
+        // Tax
+        new TableRow({
+          children: [
+            new TableCell({
+              borders: noBorders,
+              width: { size: 7200, type: WidthType.DXA },
+              children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: `${t.tax} (${(taxRate * 100).toFixed(0)}%)`, bold: true })] })]
+            }),
+            new TableCell({
+              borders: noBorders,
+              width: { size: 2400, type: WidthType.DXA },
+              children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun(formatCurrency(taxAmount, currency, lang))] })]
+            })
+          ]
+        })
+      );
+    }
+
+    // Total row
+    rows.push(new TableRow({
+      children: [
+        new TableCell({
+          borders: noBorders,
+          width: { size: 7200, type: WidthType.DXA },
+          children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: t.total, bold: true })] })]
+        }),
+        new TableCell({
+          borders: noBorders,
+          width: { size: 2400, type: WidthType.DXA },
+          children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: formatCurrency(totalAmount, currency, lang), bold: true })] })]
+        })
+      ]
+    }));
+
+    return new Table({ columnWidths: [7200, 2400], rows });
+  }
+
+  // Mixed billing types - use 4-column layout
+  const rows: TableRow[] = [
+    // Header row
+    new TableRow({
+      children: [
+        new TableCell({
+          borders: noBorders,
+          width: { size: 4800, type: WidthType.DXA },
+          children: [new Paragraph({ children: [new TextRun({ text: t.description, bold: true })] })]
+        }),
+        new TableCell({
+          borders: noBorders,
+          width: { size: 1600, type: WidthType.DXA },
+          children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: t.quantity, bold: true })] })]
+        }),
+        new TableCell({
+          borders: noBorders,
+          width: { size: 1600, type: WidthType.DXA },
+          children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: t.unitPrice, bold: true })] })]
+        }),
+        new TableCell({
+          borders: noBorders,
+          width: { size: 1600, type: WidthType.DXA },
+          children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: t.total, bold: true })] })]
+        })
+      ]
+    })
+  ];
+
+  // Line item rows
+  lineItems.forEach(item => {
+    const description = `${item.description}, ${monthName}`;
+    const quantityDisplay = item.billingType === 'fixed' ? '-' : formatQuantity(item.quantity, lang);
+    const rateDisplay = item.billingType === 'fixed' ? '-' : formatCurrency(item.rate, currency, lang);
+
+    rows.push(new TableRow({
+      children: [
+        new TableCell({
+          borders: noBorders,
+          width: { size: 4800, type: WidthType.DXA },
+          children: [new Paragraph({ children: [new TextRun(description)] })]
+        }),
+        new TableCell({
+          borders: noBorders,
+          width: { size: 1600, type: WidthType.DXA },
+          children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun(quantityDisplay)] })]
+        }),
+        new TableCell({
+          borders: noBorders,
+          width: { size: 1600, type: WidthType.DXA },
+          children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun(rateDisplay)] })]
+        }),
+        new TableCell({
+          borders: noBorders,
+          width: { size: 1600, type: WidthType.DXA },
+          children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun(formatCurrency(item.total, currency, lang))] })]
+        })
+      ]
+    }));
   });
+
+  // Add subtotal/tax/total rows if tax is applied
+  if (taxRate > 0) {
+    rows.push(
+      // Subtotal
+      new TableRow({
+        children: [
+          new TableCell({ borders: noBorders, width: { size: 4800, type: WidthType.DXA }, children: [new Paragraph({ children: [] })] }),
+          new TableCell({ borders: noBorders, width: { size: 1600, type: WidthType.DXA }, children: [new Paragraph({ children: [] })] }),
+          new TableCell({
+            borders: noBorders,
+            width: { size: 1600, type: WidthType.DXA },
+            children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: t.subtotal, bold: true })] })]
+          }),
+          new TableCell({
+            borders: noBorders,
+            width: { size: 1600, type: WidthType.DXA },
+            children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun(formatCurrency(subtotal, currency, lang))] })]
+          })
+        ]
+      }),
+      // Tax
+      new TableRow({
+        children: [
+          new TableCell({ borders: noBorders, width: { size: 4800, type: WidthType.DXA }, children: [new Paragraph({ children: [] })] }),
+          new TableCell({ borders: noBorders, width: { size: 1600, type: WidthType.DXA }, children: [new Paragraph({ children: [] })] }),
+          new TableCell({
+            borders: noBorders,
+            width: { size: 1600, type: WidthType.DXA },
+            children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: `${t.tax} (${(taxRate * 100).toFixed(0)}%)`, bold: true })] })]
+          }),
+          new TableCell({
+            borders: noBorders,
+            width: { size: 1600, type: WidthType.DXA },
+            children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun(formatCurrency(taxAmount, currency, lang))] })]
+          })
+        ]
+      })
+    );
+  }
+
+  // Total row
+  rows.push(new TableRow({
+    children: [
+      new TableCell({ borders: noBorders, width: { size: 4800, type: WidthType.DXA }, children: [new Paragraph({ children: [] })] }),
+      new TableCell({ borders: noBorders, width: { size: 1600, type: WidthType.DXA }, children: [new Paragraph({ children: [] })] }),
+      new TableCell({
+        borders: noBorders,
+        width: { size: 1600, type: WidthType.DXA },
+        children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: t.total, bold: true })] })]
+      }),
+      new TableCell({
+        borders: noBorders,
+        width: { size: 1600, type: WidthType.DXA },
+        children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: formatCurrency(totalAmount, currency, lang), bold: true })] })]
+      })
+    ]
+  }));
+
+  return new Table({ columnWidths: [4800, 1600, 1600, 1600], rows });
 }
 
 export function buildDocument(ctx: InvoiceContext): Document {
@@ -226,14 +371,52 @@ export function buildDocument(ctx: InvoiceContext): Document {
     }));
   }
 
+  // Load logo if configured
+  const logo = loadLogo(provider.logoPath);
+
+  // Build header row with optional logo
+  const headerContent: (TextRun | ImageRun)[] = [new TextRun({ text: t.invoice, bold: true, size: 48 })];
+
   // Build document children
-  const children: (Paragraph | Table)[] = [
-    new Paragraph({
+  const children: (Paragraph | Table)[] = [];
+
+  // If logo exists, create a header table with logo on right
+  if (logo) {
+    children.push(new Table({
+      columnWidths: [7200, 2400],
+      rows: [
+        new TableRow({
+          children: [
+            new TableCell({
+              borders: noBorders,
+              width: { size: 7200, type: WidthType.DXA },
+              children: [new Paragraph({
+                alignment: AlignmentType.LEFT,
+                children: [new TextRun({ text: t.invoice, bold: true, size: 48 })]
+              })]
+            }),
+            new TableCell({
+              borders: noBorders,
+              width: { size: 2400, type: WidthType.DXA },
+              children: [new Paragraph({
+                alignment: AlignmentType.RIGHT,
+                children: [logo]
+              })]
+            })
+          ]
+        })
+      ]
+    }));
+    children.push(new Paragraph({ spacing: { after: 200 }, children: [] }));
+  } else {
+    children.push(new Paragraph({
       alignment: AlignmentType.LEFT,
       spacing: { after: 400 },
       children: [new TextRun({ text: t.invoice, bold: true, size: 48 })]
-    }),
+    }));
+  }
 
+  children.push(
     new Table({
       columnWidths: [4800, 4800],
       rows: [
@@ -283,10 +466,11 @@ export function buildDocument(ctx: InvoiceContext): Document {
     buildLineItemsTable(ctx),
 
     new Paragraph({ spacing: { before: 300, after: 200 }, children: [] })
-  ];
+  );
 
-  // Add tax note for German invoices
-  if (lang === 'de' && t.taxNote) {
+  // Add tax note for German invoices (only when NOT charging VAT)
+  // The taxNote is for Kleinunternehmer who are exempt from VAT
+  if (lang === 'de' && t.taxNote && ctx.taxRate === 0) {
     children.push(new Paragraph({
       spacing: { after: 100 },
       children: [new TextRun({ text: t.taxNote, italics: true, size: 20 })]
