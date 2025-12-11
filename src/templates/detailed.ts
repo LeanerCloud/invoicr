@@ -8,9 +8,9 @@ import {
   AlignmentType,
   WidthType,
 } from 'docx';
-import { InvoiceContext } from '../types';
-import { formatCurrency, getTranslatedCountry } from '../utils';
-import { noBorders, loadLogo, buildLineItemsTable } from './common';
+import { InvoiceContext } from '../types.js';
+import { formatCurrency, getTranslatedCountry } from '../utils.js';
+import { noBorders, loadLogo, buildLineItemsTable } from './common.js';
 
 /**
  * Detailed template - Extended invoice with more information

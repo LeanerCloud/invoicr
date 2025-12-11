@@ -12,8 +12,8 @@ import {
 } from 'docx';
 import * as fs from 'fs';
 import * as path from 'path';
-import { InvoiceContext } from '../types';
-import { formatCurrency, formatQuantity } from '../utils';
+import { InvoiceContext } from '../types.js';
+import { formatCurrency, formatQuantity } from '../utils.js';
 
 // Border styles
 export const noBorder = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };

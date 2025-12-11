@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 import * as fs from 'fs';
 import * as path from 'path';
-import { getHistory, InvoiceRecord } from '../history';
+import { fileURLToPath } from 'url';
+import { collectAllRecords, formatRecords } from './export-utils.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Parse command line arguments
 const args = process.argv.slice(2);
@@ -32,7 +36,7 @@ const formatArg = args.find(a => a.startsWith('--format='));
 const outputArg = args.find(a => a.startsWith('--output='));
 
 const clientFilter = clientArg?.replace('--client=', '');
-const format = formatArg?.replace('--format=', '') || 'csv';
+const format = (formatArg?.replace('--format=', '') || 'csv') as 'csv' | 'json';
 const outputFile = outputArg?.replace('--output=', '');
 
 if (format !== 'csv' && format !== 'json') {
@@ -44,50 +48,8 @@ if (format !== 'csv' && format !== 'json') {
 const cwd = process.cwd();
 const installDir = path.join(__dirname, '..', '..');
 
-interface ExportRecord extends InvoiceRecord {
-  client: string;
-}
-
-const allRecords: ExportRecord[] = [];
-
-function scanDirectory(baseDir: string, subDir: string = '') {
-  const searchDir = subDir ? path.join(baseDir, subDir) : baseDir;
-
-  if (!fs.existsSync(searchDir)) return;
-
-  const entries = fs.readdirSync(searchDir, { withFileTypes: true });
-
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-
-    const clientDir = path.join(searchDir, entry.name);
-    const historyPath = path.join(clientDir, 'history.json');
-
-    // Skip if no history file
-    if (!fs.existsSync(historyPath)) continue;
-
-    // Apply client filter if specified
-    if (clientFilter && entry.name !== clientFilter) continue;
-
-    const history = getHistory(clientDir);
-    for (const record of history) {
-      allRecords.push({
-        ...record,
-        client: entry.name
-      });
-    }
-  }
-}
-
-// Scan for client directories
-scanDirectory(cwd, 'clients');
-scanDirectory(cwd);
-scanDirectory(installDir, 'clients');
-scanDirectory(installDir);
-scanDirectory(installDir, 'examples');
-
-// Sort by date (newest first)
-allRecords.sort((a, b) => b.date.localeCompare(a.date));
+// Collect all records
+const allRecords = collectAllRecords(cwd, installDir, clientFilter);
 
 if (allRecords.length === 0) {
   console.error('No invoice history found.');
@@ -99,30 +61,7 @@ if (allRecords.length === 0) {
 }
 
 // Generate output
-let output: string;
-
-if (format === 'json') {
-  output = JSON.stringify(allRecords, null, 2);
-} else {
-  // CSV format
-  const headers = ['Invoice Number', 'Date', 'Client', 'Month', 'Quantity', 'Rate', 'Total Amount', 'Currency', 'PDF Path'];
-  const rows = allRecords.map(r => [
-    r.invoiceNumber,
-    r.date,
-    r.client,
-    r.month,
-    r.quantity.toString(),
-    r.rate.toString(),
-    r.totalAmount.toFixed(2),
-    r.currency,
-    r.pdfPath
-  ]);
-
-  output = [
-    headers.join(','),
-    ...rows.map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(','))
-  ].join('\n');
-}
+const output = formatRecords(allRecords, format);
 
 // Write output
 if (outputFile) {

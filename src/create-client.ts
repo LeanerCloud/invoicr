@@ -2,7 +2,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as readline from 'readline';
-import { Client } from './types';
+import { fileURLToPath } from 'url';
+import { Client } from './types.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Check current working directory first, then fall back to installation directory
 const cwd = process.cwd();

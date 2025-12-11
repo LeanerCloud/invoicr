@@ -31,3 +31,6 @@ clients/*/
 # Temp files
 *.log
 temp_email.scpt
+
+# Test coverage
+coverage/

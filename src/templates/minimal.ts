@@ -8,9 +8,9 @@ import {
   AlignmentType,
   WidthType,
 } from 'docx';
-import { InvoiceContext } from '../types';
-import { formatCurrency } from '../utils';
-import { noBorders, loadLogo, buildLineItemsTable } from './common';
+import { InvoiceContext } from '../types.js';
+import { formatCurrency } from '../utils.js';
+import { noBorders, loadLogo, buildLineItemsTable } from './common.js';
 
 /**
  * Minimal template - Clean, compact invoice design

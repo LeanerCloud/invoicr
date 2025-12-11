@@ -8,9 +8,9 @@ import {
   AlignmentType,
   WidthType,
 } from 'docx';
-import { InvoiceContext } from '../types';
-import { getTranslatedCountry } from '../utils';
-import { noBorders, loadLogo, buildLineItemsTable } from './common';
+import { InvoiceContext } from '../types.js';
+import { getTranslatedCountry } from '../utils.js';
+import { noBorders, loadLogo, buildLineItemsTable } from './common.js';
 
 export function buildDefaultDocument(ctx: InvoiceContext): Document {
   const { provider, client, translations: t, invoiceNumber, invoiceDate, servicePeriod, billingType, lang, bankDetails } = ctx;

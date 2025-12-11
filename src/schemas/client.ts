@@ -1,5 +1,5 @@
 import { z } from 'zod/v4';
-import { addressSchema, bankSchema } from './provider';
+import { addressSchema, bankSchema } from './provider.js';
 
 export const serviceDescriptionSchema = z.union([
   z.string(),

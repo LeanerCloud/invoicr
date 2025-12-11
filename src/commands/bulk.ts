@@ -2,6 +2,17 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
+import { fileURLToPath } from 'url';
+import {
+  validateBulkConfig,
+  buildInvoiceArgs,
+  buildInvoiceCommand,
+  formatProgress,
+  buildSummaryOutput
+} from './bulk-utils.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Parse command line arguments
 const args = process.argv.slice(2);
@@ -55,43 +66,28 @@ if (!fs.existsSync(configPath)) {
 }
 
 // Load and validate config
-interface BulkInvoice {
-  client: string;
-  quantity: number;
-  month?: string;
-  email?: boolean;
-}
-
-interface BulkConfig {
-  invoices: BulkInvoice[];
-}
-
-let config: BulkConfig;
+let configData: unknown;
 try {
-  const configData = fs.readFileSync(configPath, 'utf8');
-  config = JSON.parse(configData);
+  const rawData = fs.readFileSync(configPath, 'utf8');
+  configData = JSON.parse(rawData);
 } catch (err) {
   console.error(`Error: failed to parse config file: ${err}`);
   process.exit(1);
 }
 
-if (!config.invoices || !Array.isArray(config.invoices)) {
-  console.error('Error: config file must contain an "invoices" array');
+const validationResult = validateBulkConfig(configData);
+if ('errors' in validationResult) {
+  for (const error of validationResult.errors) {
+    if (error.index >= 0) {
+      console.error(`Error: invoice ${error.index + 1}: ${error.message}`);
+    } else {
+      console.error(`Error: ${error.message}`);
+    }
+  }
   process.exit(1);
 }
 
-// Validate each invoice entry
-for (let i = 0; i < config.invoices.length; i++) {
-  const inv = config.invoices[i];
-  if (!inv.client) {
-    console.error(`Error: invoice ${i + 1} is missing "client" field`);
-    process.exit(1);
-  }
-  if (typeof inv.quantity !== 'number' || inv.quantity <= 0) {
-    console.error(`Error: invoice ${i + 1} has invalid "quantity" (must be positive number)`);
-    process.exit(1);
-  }
-}
+const config = validationResult.config;
 
 console.log(`Processing ${config.invoices.length} invoice(s)...`);
 console.log('');
@@ -106,28 +102,17 @@ let errorCount = 0;
 for (let i = 0; i < config.invoices.length; i++) {
   const inv = config.invoices[i];
 
-  console.log(`[${i + 1}/${config.invoices.length}] ${inv.client} (qty: ${inv.quantity})`);
+  console.log(formatProgress(i + 1, config.invoices.length, inv.client, inv.quantity));
 
   // Build command
-  const cmdArgs: string[] = [inv.client, inv.quantity.toString()];
-
-  if (inv.month) {
-    cmdArgs.push(`--month=${inv.month}`);
-  }
-  if (inv.email) {
-    cmdArgs.push('--email');
-  }
-  if (isDryRun) {
-    cmdArgs.push('--dry-run');
-  }
-
-  const cmd = `node "${invoicrPath}" ${cmdArgs.join(' ')}`;
+  const cmdArgs = buildInvoiceArgs(inv, isDryRun);
+  const cmd = buildInvoiceCommand(invoicrPath, cmdArgs);
 
   try {
     execSync(cmd, { stdio: 'inherit', cwd: process.cwd() });
     successCount++;
     console.log('');
-  } catch (err) {
+  } catch {
     errorCount++;
     console.error(`  Error generating invoice for ${inv.client}`);
     console.log('');
@@ -135,11 +120,4 @@ for (let i = 0; i < config.invoices.length; i++) {
 }
 
 // Summary
-console.log('=== Bulk Generation Complete ===');
-console.log(`Success: ${successCount}`);
-if (errorCount > 0) {
-  console.log(`Errors:  ${errorCount}`);
-}
-if (isDryRun) {
-  console.log('(dry-run mode - no files were generated)');
-}
+console.log(buildSummaryOutput(successCount, errorCount, isDryRun));

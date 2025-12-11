@@ -3,12 +3,16 @@ import { Packer } from 'docx';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
-import { Provider, Client, Translations, InvoiceContext, ResolvedLineItem } from './types';
-import { formatDate, formatCurrency, getServiceDescription, calculateDueDate } from './utils';
-import { buildDocument, TemplateName } from './document';
-import { createEmail } from './email';
-import { validateProvider, validateClient } from './schemas';
-import { saveToHistory } from './history';
+import { fileURLToPath } from 'url';
+import { Provider, Client, Translations, InvoiceContext, ResolvedLineItem } from './types.js';
+import { formatDate, formatCurrency, getServiceDescription, calculateDueDate } from './utils.js';
+import { buildDocument, TemplateName } from './document.js';
+import { createEmail } from './email.js';
+import { validateProvider, validateClient } from './schemas/index.js';
+import { saveToHistory } from './history.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Parse command line arguments
 const args = process.argv.slice(2);

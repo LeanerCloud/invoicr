@@ -1,8 +1,8 @@
 import { Document } from 'docx';
-import { InvoiceContext } from '../types';
-import { buildDefaultDocument } from './default';
-import { buildMinimalDocument } from './minimal';
-import { buildDetailedDocument } from './detailed';
+import { InvoiceContext } from '../types.js';
+import { buildDefaultDocument } from './default.js';
+import { buildMinimalDocument } from './minimal.js';
+import { buildDetailedDocument } from './detailed.js';
 
 export type TemplateName = 'default' | 'minimal' | 'detailed';
 

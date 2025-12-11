@@ -4,7 +4,7 @@ export {
   providerSchema,
   type ProviderInput,
   type Provider
-} from './provider';
+} from './provider.js';
 
 export {
   serviceDescriptionSchema,
@@ -15,11 +15,11 @@ export {
   type ClientInput,
   type Client,
   type LineItem
-} from './client';
+} from './client.js';
 
 import { z } from 'zod/v4';
-import { providerSchema } from './provider';
-import { clientSchema } from './client';
+import { providerSchema } from './provider.js';
+import { clientSchema } from './client.js';
 
 /**
  * Validate a provider config and return typed result or throw with helpful error message

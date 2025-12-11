@@ -11,7 +11,10 @@ A TypeScript CLI tool that generates DOCX and PDF invoices from JSON configurati
 - Email drafts with PDF attachment (macOS Mail.app)
 - Separate email language from invoice language
 - Interactive client creation wizard
-- **NEW in 1.4.0:**
+- **NEW in 1.5.0:**
+  - ESM modules (modern JavaScript module system)
+  - Unit tests with Vitest (203 tests, 96% coverage)
+- **In 1.4.0:**
   - Custom invoice templates (default, minimal, detailed)
   - `invoicr-export` - Export invoice history to CSV/JSON
   - `invoicr-bulk` - Generate multiple invoices at once
@@ -156,39 +159,16 @@ The command will prompt for:
 - Bank details (optional)
 - Email recipients (To/CC)
 
-## Project Structure
+## Workspace Layout
 
 ```
-invoicr/
-├── src/
-│   ├── invoice.ts          # Main entry point
-│   ├── create-client.ts    # Client creation wizard
-│   ├── document.ts         # Document generation
-│   ├── email.ts            # Email functionality
-│   ├── history.ts          # Invoice history tracking
-│   ├── types.ts            # TypeScript interfaces
-│   ├── utils.ts            # Formatting utilities
-│   ├── schemas/            # Zod validation schemas
-│   │   ├── provider.ts
-│   │   ├── client.ts
-│   │   └── index.ts
-│   ├── commands/           # CLI commands
-│   │   ├── init.ts         # invoicr-init
-│   │   └── list.ts         # invoicr-list
-│   └── translations/
-│       ├── de.json         # German translations
-│       └── en.json         # English translations
-├── examples/
-│   ├── acme-hourly.json    # Hourly billing example
-│   ├── acme-daily.json     # Daily billing example
-│   └── acme-fixed.json     # Fixed amount example
-├── clients/                # Your client configurations
+your-workspace/
+├── provider.json           # Your business details
+├── clients/
 │   └── <client>/
-│       ├── <client>.json
+│       ├── <client>.json   # Client configuration
 │       └── history.json    # Invoice history (auto-generated)
-├── provider.json           # Your business details (create from example)
-├── provider.example.json   # Example provider config
-└── package.json
+└── invoices/               # Generated invoices (DOCX/PDF)
 ```
 
 ## Configuration
@@ -456,11 +436,17 @@ The `nextInvoiceNumber` in the client JSON is automatically incremented after ea
 ## Development
 
 ```bash
-# Run invoice without building (using ts-node)
+# Run invoice without building (using tsx)
 npm run dev -- acme-hourly 8
 
 # Build TypeScript
 npm run build
+
+# Run tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
 ```
 
 ## Scripts
@@ -472,7 +458,9 @@ npm run build
 | `npm run new-client` | Create a new client interactively |
 | `npm run init` | Initialize a new workspace |
 | `npm run list` | List available clients |
-| `npm run dev` | Run invoice.ts directly with ts-node |
+| `npm run dev` | Run invoice.ts directly with tsx |
+| `npm test` | Run unit tests with Vitest |
+| `npm run test:watch` | Run tests in watch mode |
 
 ## License
 
