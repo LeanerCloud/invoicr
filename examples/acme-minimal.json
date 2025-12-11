@@ -1,0 +1,21 @@
+{
+  "name": "Acme Startup Inc",
+  "address": {
+    "street": "789 Innovation Way",
+    "city": "Austin, TX 78701"
+  },
+  "language": "en",
+  "invoicePrefix": "ASI",
+  "nextInvoiceNumber": 1,
+  "service": {
+    "description": "Technical Consulting",
+    "billingType": "hourly",
+    "rate": 125,
+    "currency": "USD"
+  },
+  "template": "minimal",
+  "paymentTermsDays": 15,
+  "email": {
+    "to": ["startup@acme.io"]
+  }
+}

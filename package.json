@@ -1,13 +1,15 @@
 {
   "name": "invoicr",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "CLI tool to generate DOCX/PDF invoices from JSON configs with email integration",
   "main": "dist/invoice.js",
   "bin": {
     "invoicr": "dist/invoice.js",
     "invoicr-new": "dist/create-client.js",
     "invoicr-init": "dist/commands/init.js",
-    "invoicr-list": "dist/commands/list.js"
+    "invoicr-list": "dist/commands/list.js",
+    "invoicr-export": "dist/commands/export.js",
+    "invoicr-bulk": "dist/commands/bulk.js"
   },
   "scripts": {
     "build": "tsc && cp -r src/translations dist/",
@@ -15,6 +17,8 @@
     "new-client": "node dist/create-client.js",
     "init": "node dist/commands/init.js",
     "list": "node dist/commands/list.js",
+    "export": "node dist/commands/export.js",
+    "bulk": "node dist/commands/bulk.js",
     "dev": "ts-node src/invoice.ts"
   },
   "keywords": [

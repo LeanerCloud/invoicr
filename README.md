@@ -11,7 +11,11 @@ A TypeScript CLI tool that generates DOCX and PDF invoices from JSON configurati
 - Email drafts with PDF attachment (macOS Mail.app)
 - Separate email language from invoice language
 - Interactive client creation wizard
-- **NEW in 1.3.0:**
+- **NEW in 1.4.0:**
+  - Custom invoice templates (default, minimal, detailed)
+  - `invoicr-export` - Export invoice history to CSV/JSON
+  - `invoicr-bulk` - Generate multiple invoices at once
+- **In 1.3.0:**
   - Multiple line items per invoice
   - Tax/VAT calculation with configurable rates
   - Logo support in invoice header
@@ -138,6 +142,8 @@ npm run new-client -- --from=acme-daily
 | `acme-daily` | Daily | EUR, German invoice + English email, translated descriptions |
 | `acme-fixed` | Fixed | USD, custom bank account, payment upon receipt |
 | `acme-multiservice` | Mixed | Multiple line items with tax (1.3.0+) |
+| `acme-minimal` | Hourly | Minimal template style (1.4.0+) |
+| `acme-detailed` | Daily | Detailed template style (1.4.0+) |
 
 The command will prompt for:
 - Client folder name
@@ -327,6 +333,7 @@ Create a folder for each client with a JSON file inside (e.g., `acme/acme.json`)
 | `email.cc` | Optional. Array of CC email addresses |
 | `lineItems` | Optional. Array of line items (1.3.0+). Overrides single-service mode |
 | `taxRate` | Optional. Tax rate as decimal (e.g., 0.19 for 19%) (1.3.0+) |
+| `template` | Optional. Invoice template: `"default"`, `"minimal"`, or `"detailed"` (1.4.0+) |
 
 ### Multiple Line Items (1.3.0+)
 
@@ -358,6 +365,60 @@ Add a logo to your invoices by specifying `logoPath` in `provider.json`:
 ```
 
 Supported formats: PNG, JPG, GIF, BMP. The path can be absolute or relative to the current working directory.
+
+### Invoice Templates (1.4.0+)
+
+Choose from three invoice styles by setting `template` in your client config:
+
+| Template | Description |
+|----------|-------------|
+| `default` | Full-featured layout with all details (default) |
+| `minimal` | Clean, compact design with inline info |
+| `detailed` | Extended layout with emphasized payment info |
+
+```json
+{
+  "name": "My Client",
+  "template": "minimal"
+}
+```
+
+### Export History (1.4.0+)
+
+Export your invoice history to CSV or JSON:
+
+```bash
+invoicr-export                           # Export all to CSV (stdout)
+invoicr-export --format=json             # Export all to JSON
+invoicr-export --client=acme-hourly      # Export specific client
+invoicr-export --output=invoices.csv     # Export to file
+```
+
+### Bulk Generation (1.4.0+)
+
+Generate multiple invoices from a configuration file:
+
+```bash
+invoicr-bulk batch.json
+invoicr-bulk batch.json --dry-run        # Preview without generating
+```
+
+Config file format:
+```json
+{
+  "invoices": [
+    { "client": "acme-hourly", "quantity": 40 },
+    { "client": "acme-daily", "quantity": 5, "month": "10-2025" },
+    { "client": "acme-fixed", "quantity": 15000, "email": true }
+  ]
+}
+```
+
+Each invoice entry supports:
+- `client` (required): Client folder name
+- `quantity` (required): Quantity/amount for invoice
+- `month` (optional): Billing month (MM-YYYY format)
+- `email` (optional): Create email draft (true/false)
 
 ## Email Feature
 

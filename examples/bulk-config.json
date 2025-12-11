@@ -1,0 +1,16 @@
+{
+  "invoices": [
+    {
+      "client": "acme-hourly",
+      "quantity": 40
+    },
+    {
+      "client": "acme-daily",
+      "quantity": 5
+    },
+    {
+      "client": "acme-minimal",
+      "quantity": 20
+    }
+  ]
+}

@@ -5,7 +5,7 @@ import * as path from 'path';
 import { execSync } from 'child_process';
 import { Provider, Client, Translations, InvoiceContext, ResolvedLineItem } from './types';
 import { formatDate, formatCurrency, getServiceDescription, calculateDueDate } from './utils';
-import { buildDocument } from './document';
+import { buildDocument, TemplateName } from './document';
 import { createEmail } from './email';
 import { validateProvider, validateClient } from './schemas';
 import { saveToHistory } from './history';
@@ -275,8 +275,9 @@ if (isDryRun) {
   process.exit(0);
 }
 
-// Build document
-const doc = buildDocument(ctx);
+// Build document with selected template
+const template: TemplateName = client.template || 'default';
+const doc = buildDocument(ctx, template);
 
 // Generate DOCX and PDF
 Packer.toBuffer(doc).then(buffer => {

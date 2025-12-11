@@ -1,0 +1,24 @@
+{
+  "name": "Acme Corporation International",
+  "address": {
+    "street": "One Corporate Plaza, Suite 500",
+    "city": "Chicago, IL 60601",
+    "country": "USA"
+  },
+  "language": "en",
+  "invoicePrefix": "ACI",
+  "nextInvoiceNumber": 1,
+  "projectReference": "Enterprise Digital Transformation Initiative",
+  "service": {
+    "description": "Strategic IT Consulting & Implementation",
+    "billingType": "daily",
+    "rate": 1500,
+    "currency": "USD"
+  },
+  "template": "detailed",
+  "paymentTermsDays": 45,
+  "email": {
+    "to": ["procurement@acme-corp.com"],
+    "cc": ["finance@acme-corp.com", "project-manager@acme-corp.com"]
+  }
+}
