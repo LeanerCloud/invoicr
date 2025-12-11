@@ -2,7 +2,8 @@
   "name": "Acme Industries Ltd",
   "address": {
     "street": "100 Business Park Drive",
-    "city": "London, EC1A 1BB"
+    "city": "London, EC1A 1BB",
+    "country": "United Kingdom"
   },
   "language": "en",
   "invoicePrefix": "AI",

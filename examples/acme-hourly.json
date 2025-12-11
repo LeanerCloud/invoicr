@@ -2,7 +2,8 @@
   "name": "Acme Corp",
   "address": {
     "street": "123 Main Street",
-    "city": "New York, NY 10001"
+    "city": "New York, NY 10001",
+    "country": "USA"
   },
   "language": "en",
   "invoicePrefix": "AC",
@@ -16,7 +17,11 @@
   },
   "paymentTermsDays": 30,
   "email": {
-    "to": ["Jane Smith <jane@acme.com>"],
-    "cc": ["Accounting <billing@acme.com>"]
+    "to": [
+      "Jane Smith <jane@acme.com>"
+    ],
+    "cc": [
+      "Accounting <billing@acme.com>"
+    ]
   }
 }

@@ -2,7 +2,8 @@
   "name": "Your Name",
   "address": {
     "street": "Street 123",
-    "city": "12345 City, Country"
+    "city": "12345 City",
+    "country": { "de": "Deutschland", "en": "Germany" }
   },
   "phone": "+49 123 456789",
   "email": "email@example.com",

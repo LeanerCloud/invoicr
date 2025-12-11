@@ -28,3 +28,12 @@ export function getServiceDescription(description: string | { de?: string; en?: 
   }
   return description[lang as 'de' | 'en'] || description.de || description.en || '';
 }
+
+export function getTranslatedCountry(country: string | { de?: string; en?: string } | undefined, lang: string): string | undefined {
+  if (!country) return undefined;
+  if (typeof country === 'string') {
+    return country;
+  }
+  return country[lang as 'de' | 'en'] || country.de || country.en || '';
+}
+

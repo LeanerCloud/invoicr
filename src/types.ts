@@ -1,6 +1,7 @@
 export interface Address {
   street: string;
   city: string;
+  country?: string | { de?: string; en?: string };
 }
 
 export interface BankDetails {

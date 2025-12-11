@@ -2,7 +2,8 @@
   "name": "Acme GmbH",
   "address": {
     "street": "Musterstraße 42",
-    "city": "10115 Berlin"
+    "city": "10115 Berlin",
+    "country": { "de": "Deutschland", "en": "Germany" }
   },
   "language": "de",
   "emailLanguage": "en",

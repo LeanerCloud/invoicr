@@ -11,7 +11,7 @@ import {
   ITableCellBorders,
 } from 'docx';
 import { InvoiceContext } from './types';
-import { formatCurrency, formatQuantity } from './utils';
+import { formatCurrency, formatQuantity, getTranslatedCountry } from './utils';
 
 // Border styles
 const noBorder = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
@@ -228,7 +228,7 @@ export function buildDocument(ctx: InvoiceContext): Document {
                 new Paragraph({ spacing: { after: 80 }, children: [new TextRun({ text: t.serviceProvider, bold: true, size: 20, color: "666666" })] }),
                 new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: provider.name, bold: true })] }),
                 new Paragraph({ spacing: { after: 40 }, children: [new TextRun(provider.address.street)] }),
-                new Paragraph({ spacing: { after: 40 }, children: [new TextRun(provider.address.city)] }),
+                new Paragraph({ spacing: { after: 40 }, children: [new TextRun(provider.address.city + (provider.address.country ? ', ' + getTranslatedCountry(provider.address.country, lang) : ''))] }),
                 new Paragraph({ spacing: { after: 40 }, children: [new TextRun(`Tel: ${provider.phone}`)] }),
                 new Paragraph({ children: [new TextRun(`E-Mail: ${provider.email}`)] })
               ]
