@@ -1,24 +1,13 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import * as fs from 'fs';
-import * as path from 'path';
-import { buildDocument, TemplateName } from '../src/templates/index.js';
-import { loadLogo } from '../src/templates/common.js';
+import { describe, it, expect } from 'vitest';
+import {
+  generateInvoiceFromTemplate,
+  getBuiltInTemplates,
+  isBuiltInTemplate,
+  getTemplatePath,
+  contextToTemplateData,
+  listTemplates,
+} from '../src/lib/template-generator.js';
 import { InvoiceContext, ResolvedLineItem, BankDetails, Provider, Client, Translations } from '../src/types.js';
-
-// Create a test PNG file for logo testing
-const testLogoPath = '/tmp/test-invoicr-logo.png';
-// Minimal 1x1 PNG (base64-decoded)
-const minimalPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
-
-beforeAll(() => {
-  fs.writeFileSync(testLogoPath, minimalPng);
-});
-
-afterAll(() => {
-  if (fs.existsSync(testLogoPath)) {
-    fs.unlinkSync(testLogoPath);
-  }
-});
 
 // Helper to create minimal mock context for testing
 function createMockContext(overrides: Partial<InvoiceContext> = {}): InvoiceContext {
@@ -120,44 +109,161 @@ function createMockContext(overrides: Partial<InvoiceContext> = {}): InvoiceCont
   };
 }
 
-describe('buildDocument', () => {
-  describe('default template', () => {
-    it('should build a default document', () => {
-      const ctx = createMockContext();
-      const doc = buildDocument(ctx, 'default');
+describe('Template Generator', () => {
+  describe('getBuiltInTemplates', () => {
+    it('should return list of built-in templates', () => {
+      const templates = getBuiltInTemplates();
+      expect(templates).toContain('default');
+      expect(templates).toContain('minimal');
+      expect(templates).toContain('detailed');
+      expect(templates).toHaveLength(3);
+    });
+  });
 
-      expect(doc).toBeDefined();
-      // Document object from docx library has internal structure
-      expect(typeof doc).toBe('object');
+  describe('isBuiltInTemplate', () => {
+    it('should return true for built-in templates', () => {
+      expect(isBuiltInTemplate('default')).toBe(true);
+      expect(isBuiltInTemplate('minimal')).toBe(true);
+      expect(isBuiltInTemplate('detailed')).toBe(true);
+    });
+
+    it('should return false for custom templates', () => {
+      expect(isBuiltInTemplate('my-custom')).toBe(false);
+      expect(isBuiltInTemplate('custom-template')).toBe(false);
+    });
+  });
+
+  describe('getTemplatePath', () => {
+    it('should return path for built-in templates', () => {
+      const path = getTemplatePath('default');
+      expect(path).toContain('templates');
+      expect(path).toContain('default.docx');
+    });
+
+    it('should throw for non-existent template', () => {
+      expect(() => getTemplatePath('non-existent-template')).toThrow('Template not found');
+    });
+  });
+
+  describe('listTemplates', () => {
+    it('should list built-in templates', () => {
+      const result = listTemplates();
+      expect(result.builtIn).toContain('default');
+      expect(result.builtIn).toContain('minimal');
+      expect(result.builtIn).toContain('detailed');
+      expect(result.custom).toHaveLength(0);
+    });
+  });
+
+  describe('contextToTemplateData', () => {
+    it('should convert context to template data', () => {
+      const ctx = createMockContext();
+      const data = contextToTemplateData(ctx);
+
+      expect(data.invoiceNumber).toBe('AC-1');
+      expect(data.invoiceDate).toBe('15 Nov 2025');
+      expect(data.provider.name).toBe('Test Provider');
+      expect(data.client.name).toBe('Acme Corp');
+      expect(data.lineItems).toHaveLength(1);
+      expect(data.totalAmount).toBe('$6,000.00');
     });
 
     it('should handle German language', () => {
+      const ctx = createMockContext({ lang: 'de', currency: 'EUR' });
+      const data = contextToTemplateData(ctx);
+
+      expect(data.translations.invoice).toBe('Invoice');
+      expect(data.totalAmount).toContain('€');
+    });
+
+    it('should handle tax rate', () => {
+      const ctx = createMockContext({
+        taxRate: 0.19,
+        taxAmount: 1140,
+        totalAmount: 7140
+      });
+      const data = contextToTemplateData(ctx);
+
+      expect(data.taxRate).toBe(19);
+    });
+
+    it('should include payment terms', () => {
+      const ctx = createMockContext();
+      ctx.client.paymentTermsDays = 30;
+      const data = contextToTemplateData(ctx);
+
+      expect(data.paymentTerms).toContain('30');
+    });
+
+    it('should handle immediate payment', () => {
+      const ctx = createMockContext();
+      ctx.client.paymentTermsDays = undefined;
+      const data = contextToTemplateData(ctx);
+
+      expect(data.paymentTerms).toBe('Payment due upon receipt');
+    });
+  });
+
+  describe('generateInvoiceFromTemplate', () => {
+    it('should generate DOCX buffer with default template', async () => {
+      const ctx = createMockContext();
+      const buffer = await generateInvoiceFromTemplate(ctx, 'default');
+
+      expect(buffer).toBeInstanceOf(Buffer);
+      expect(buffer.length).toBeGreaterThan(0);
+      // DOCX files start with PK (ZIP signature)
+      expect(buffer[0]).toBe(0x50); // 'P'
+      expect(buffer[1]).toBe(0x4b); // 'K'
+    });
+
+    it('should generate DOCX buffer with minimal template', async () => {
+      const ctx = createMockContext();
+      const buffer = await generateInvoiceFromTemplate(ctx, 'minimal');
+
+      expect(buffer).toBeInstanceOf(Buffer);
+      expect(buffer.length).toBeGreaterThan(0);
+    });
+
+    it('should generate DOCX buffer with detailed template', async () => {
+      const ctx = createMockContext();
+      const buffer = await generateInvoiceFromTemplate(ctx, 'detailed');
+
+      expect(buffer).toBeInstanceOf(Buffer);
+      expect(buffer.length).toBeGreaterThan(0);
+    });
+
+    it('should handle German language context', async () => {
       const ctx = createMockContext({
         lang: 'de',
+        currency: 'EUR',
         translations: {
           ...createMockContext().translations,
           invoice: 'Rechnung',
           taxNote: 'Gemäß § 19 UStG wird keine Umsatzsteuer berechnet.'
         }
       });
-      const doc = buildDocument(ctx, 'default');
-      expect(doc).toBeDefined();
+      const buffer = await generateInvoiceFromTemplate(ctx, 'default');
+
+      expect(buffer).toBeInstanceOf(Buffer);
+      expect(buffer.length).toBeGreaterThan(0);
     });
 
-    it('should include due date when provided', () => {
+    it('should handle due date', async () => {
       const ctx = createMockContext({ dueDate: '15 Dec 2025' });
-      const doc = buildDocument(ctx, 'default');
-      expect(doc).toBeDefined();
+      const buffer = await generateInvoiceFromTemplate(ctx, 'default');
+
+      expect(buffer).toBeInstanceOf(Buffer);
     });
 
-    it('should include project reference when provided', () => {
+    it('should handle project reference', async () => {
       const ctx = createMockContext();
       ctx.client.projectReference = 'Project Alpha';
-      const doc = buildDocument(ctx, 'default');
-      expect(doc).toBeDefined();
+      const buffer = await generateInvoiceFromTemplate(ctx, 'default');
+
+      expect(buffer).toBeInstanceOf(Buffer);
     });
 
-    it('should handle fixed billing type', () => {
+    it('should handle fixed billing type', async () => {
       const ctx = createMockContext({
         billingType: 'fixed',
         lineItems: [{
@@ -168,37 +274,12 @@ describe('buildDocument', () => {
           total: 5000
         }]
       });
-      const doc = buildDocument(ctx, 'default');
-      expect(doc).toBeDefined();
+      const buffer = await generateInvoiceFromTemplate(ctx, 'default');
+
+      expect(buffer).toBeInstanceOf(Buffer);
     });
 
-    it('should handle daily billing type', () => {
-      const ctx = createMockContext({
-        billingType: 'daily',
-        lineItems: [{
-          description: 'Daily Consulting',
-          quantity: 5,
-          rate: 1200,
-          billingType: 'daily',
-          total: 6000
-        }]
-      });
-      const doc = buildDocument(ctx, 'default');
-      expect(doc).toBeDefined();
-    });
-
-    it('should handle tax calculation', () => {
-      const ctx = createMockContext({
-        taxRate: 0.19,
-        subtotal: 6000,
-        taxAmount: 1140,
-        totalAmount: 7140
-      });
-      const doc = buildDocument(ctx, 'default');
-      expect(doc).toBeDefined();
-    });
-
-    it('should handle multiple line items', () => {
+    it('should handle multiple line items', async () => {
       const ctx = createMockContext({
         lineItems: [
           { description: 'Development', quantity: 40, rate: 150, billingType: 'hourly', total: 6000 },
@@ -208,286 +289,45 @@ describe('buildDocument', () => {
         subtotal: 7900,
         totalAmount: 7900
       });
-      const doc = buildDocument(ctx, 'default');
-      expect(doc).toBeDefined();
+      const buffer = await generateInvoiceFromTemplate(ctx, 'default');
+
+      expect(buffer).toBeInstanceOf(Buffer);
     });
 
-    it('should handle provider with VAT ID', () => {
+    it('should handle tax calculation', async () => {
+      const ctx = createMockContext({
+        taxRate: 0.19,
+        subtotal: 6000,
+        taxAmount: 1140,
+        totalAmount: 7140
+      });
+      const buffer = await generateInvoiceFromTemplate(ctx, 'default');
+
+      expect(buffer).toBeInstanceOf(Buffer);
+    });
+
+    it('should handle provider with VAT ID', async () => {
       const ctx = createMockContext();
       ctx.provider.vatId = 'DE123456789';
-      ctx.lang = 'de';
-      const doc = buildDocument(ctx, 'default');
-      expect(doc).toBeDefined();
+      const buffer = await generateInvoiceFromTemplate(ctx, 'default');
+
+      expect(buffer).toBeInstanceOf(Buffer);
     });
 
-    it('should handle provider with logo path (non-existent file)', () => {
-      const ctx = createMockContext();
-      ctx.provider.logoPath = 'non-existent-logo.png';
-      const doc = buildDocument(ctx, 'default');
-      expect(doc).toBeDefined();
-    });
-
-    it('should handle null payment terms (immediate payment)', () => {
-      const ctx = createMockContext();
-      ctx.client.paymentTermsDays = null;
-      const doc = buildDocument(ctx, 'default');
-      expect(doc).toBeDefined();
-    });
-
-    it('should handle payment terms with days', () => {
-      const ctx = createMockContext();
-      ctx.client.paymentTermsDays = 30;
-      const doc = buildDocument(ctx, 'default');
-      expect(doc).toBeDefined();
-    });
-  });
-
-  describe('minimal template', () => {
-    it('should build a minimal document', () => {
-      const ctx = createMockContext();
-      const doc = buildDocument(ctx, 'minimal');
-      expect(doc).toBeDefined();
-      expect(typeof doc).toBe('object');
-    });
-
-    it('should handle due date', () => {
-      const ctx = createMockContext({ dueDate: '15 Dec 2025' });
-      const doc = buildDocument(ctx, 'minimal');
-      expect(doc).toBeDefined();
-    });
-
-    it('should handle tax in German', () => {
-      const ctx = createMockContext({ lang: 'de', taxRate: 0 });
-      const doc = buildDocument(ctx, 'minimal');
-      expect(doc).toBeDefined();
-    });
-
-    it('should handle provider with VAT ID', () => {
-      const ctx = createMockContext();
-      ctx.provider.vatId = 'DE123456789';
-      const doc = buildDocument(ctx, 'minimal');
-      expect(doc).toBeDefined();
-    });
-  });
-
-  describe('detailed template', () => {
-    it('should build a detailed document', () => {
-      const ctx = createMockContext();
-      const doc = buildDocument(ctx, 'detailed');
-      expect(doc).toBeDefined();
-      expect(typeof doc).toBe('object');
-    });
-
-    it('should handle provider with country', () => {
+    it('should handle provider with country', async () => {
       const ctx = createMockContext();
       ctx.provider.address.country = 'Germany';
-      const doc = buildDocument(ctx, 'detailed');
-      expect(doc).toBeDefined();
+      const buffer = await generateInvoiceFromTemplate(ctx, 'detailed');
+
+      expect(buffer).toBeInstanceOf(Buffer);
     });
 
-    it('should handle client with country', () => {
-      const ctx = createMockContext();
-      ctx.client.address.country = 'USA';
-      const doc = buildDocument(ctx, 'detailed');
-      expect(doc).toBeDefined();
-    });
-
-    it('should handle translated country', () => {
+    it('should handle translated country object', async () => {
       const ctx = createMockContext();
       ctx.provider.address.country = { de: 'Deutschland', en: 'Germany' };
-      const doc = buildDocument(ctx, 'detailed');
-      expect(doc).toBeDefined();
+      const buffer = await generateInvoiceFromTemplate(ctx, 'detailed');
+
+      expect(buffer).toBeInstanceOf(Buffer);
     });
-
-    it('should handle due date with emphasis', () => {
-      const ctx = createMockContext({ dueDate: '15 Dec 2025' });
-      const doc = buildDocument(ctx, 'detailed');
-      expect(doc).toBeDefined();
-    });
-
-    it('should handle project reference', () => {
-      const ctx = createMockContext();
-      ctx.client.projectReference = 'Enterprise Migration';
-      const doc = buildDocument(ctx, 'detailed');
-      expect(doc).toBeDefined();
-    });
-
-    it('should handle VAT ID display', () => {
-      const ctx = createMockContext();
-      ctx.provider.vatId = 'DE123456789';
-      const doc = buildDocument(ctx, 'detailed');
-      expect(doc).toBeDefined();
-    });
-
-    it('should handle German language for reference label', () => {
-      const ctx = createMockContext({ lang: 'de' });
-      const doc = buildDocument(ctx, 'detailed');
-      expect(doc).toBeDefined();
-    });
-  });
-
-  describe('template selection', () => {
-    it('should default to default template when not specified', () => {
-      const ctx = createMockContext();
-      const doc = buildDocument(ctx);
-      expect(doc).toBeDefined();
-    });
-
-    it('should handle invalid template name by using default', () => {
-      const ctx = createMockContext();
-      // @ts-expect-error - testing invalid template name
-      const doc = buildDocument(ctx, 'invalid');
-      expect(doc).toBeDefined();
-    });
-  });
-
-  describe('logo loading edge cases', () => {
-    it('should load a valid PNG logo file', () => {
-      const ctx = createMockContext();
-      ctx.provider.logoPath = testLogoPath;
-      const doc = buildDocument(ctx, 'default');
-      expect(doc).toBeDefined();
-    });
-
-    it('should load a valid PNG logo in minimal template', () => {
-      const ctx = createMockContext();
-      ctx.provider.logoPath = testLogoPath;
-      const doc = buildDocument(ctx, 'minimal');
-      expect(doc).toBeDefined();
-    });
-
-    it('should load a valid PNG logo in detailed template', () => {
-      const ctx = createMockContext();
-      ctx.provider.logoPath = testLogoPath;
-      const doc = buildDocument(ctx, 'detailed');
-      expect(doc).toBeDefined();
-    });
-  });
-
-  describe('all-fixed items with tax', () => {
-    it('should handle all-fixed line items with tax calculation', () => {
-      const ctx = createMockContext({
-        billingType: 'fixed',
-        lineItems: [
-          { description: 'Setup Fee', quantity: 1000, rate: 1, billingType: 'fixed', total: 1000 },
-          { description: 'License Fee', quantity: 2000, rate: 1, billingType: 'fixed', total: 2000 }
-        ],
-        subtotal: 3000,
-        taxRate: 0.19,
-        taxAmount: 570,
-        totalAmount: 3570
-      });
-      const doc = buildDocument(ctx, 'default');
-      expect(doc).toBeDefined();
-    });
-
-    it('should handle all-fixed items with tax in minimal template', () => {
-      const ctx = createMockContext({
-        billingType: 'fixed',
-        lineItems: [
-          { description: 'Flat Fee', quantity: 5000, rate: 1, billingType: 'fixed', total: 5000 }
-        ],
-        subtotal: 5000,
-        taxRate: 0.07,
-        taxAmount: 350,
-        totalAmount: 5350
-      });
-      const doc = buildDocument(ctx, 'minimal');
-      expect(doc).toBeDefined();
-    });
-
-    it('should handle all-fixed items with tax in detailed template', () => {
-      const ctx = createMockContext({
-        billingType: 'fixed',
-        lineItems: [
-          { description: 'Project Milestone 1', quantity: 10000, rate: 1, billingType: 'fixed', total: 10000 }
-        ],
-        subtotal: 10000,
-        taxRate: 0.20,
-        taxAmount: 2000,
-        totalAmount: 12000
-      });
-      const doc = buildDocument(ctx, 'detailed');
-      expect(doc).toBeDefined();
-    });
-  });
-});
-
-describe('loadLogo', () => {
-  it('should return null for undefined logo path', () => {
-    const result = loadLogo(undefined);
-    expect(result).toBeNull();
-  });
-
-  it('should return null for non-existent file', () => {
-    const result = loadLogo('/non/existent/path.png');
-    expect(result).toBeNull();
-  });
-
-  it('should load a valid PNG file', () => {
-    const result = loadLogo(testLogoPath);
-    expect(result).not.toBeNull();
-  });
-
-  it('should return null for unsupported file extension', () => {
-    // Create a temp file with unsupported extension
-    const unsupportedPath = '/tmp/test-invoicr-logo.svg';
-    fs.writeFileSync(unsupportedPath, '<svg></svg>');
-    try {
-      const result = loadLogo(unsupportedPath);
-      expect(result).toBeNull();
-    } finally {
-      fs.unlinkSync(unsupportedPath);
-    }
-  });
-
-  it('should handle jpg extension', () => {
-    const jpgPath = '/tmp/test-invoicr-logo.jpg';
-    // Create a minimal valid file (not a real JPG but tests the extension handling)
-    fs.writeFileSync(jpgPath, minimalPng);
-    try {
-      const result = loadLogo(jpgPath);
-      expect(result).not.toBeNull();
-    } finally {
-      fs.unlinkSync(jpgPath);
-    }
-  });
-
-  it('should handle jpeg extension', () => {
-    const jpegPath = '/tmp/test-invoicr-logo.jpeg';
-    fs.writeFileSync(jpegPath, minimalPng);
-    try {
-      const result = loadLogo(jpegPath);
-      expect(result).not.toBeNull();
-    } finally {
-      fs.unlinkSync(jpegPath);
-    }
-  });
-
-  it('should handle gif extension', () => {
-    const gifPath = '/tmp/test-invoicr-logo.gif';
-    fs.writeFileSync(gifPath, minimalPng);
-    try {
-      const result = loadLogo(gifPath);
-      expect(result).not.toBeNull();
-    } finally {
-      fs.unlinkSync(gifPath);
-    }
-  });
-
-  it('should handle bmp extension', () => {
-    const bmpPath = '/tmp/test-invoicr-logo.bmp';
-    fs.writeFileSync(bmpPath, minimalPng);
-    try {
-      const result = loadLogo(bmpPath);
-      expect(result).not.toBeNull();
-    } finally {
-      fs.unlinkSync(bmpPath);
-    }
-  });
-
-  it('should handle absolute paths', () => {
-    const result = loadLogo(testLogoPath); // Already absolute
-    expect(result).not.toBeNull();
   });
 });
