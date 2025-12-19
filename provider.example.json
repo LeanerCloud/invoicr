@@ -13,5 +13,6 @@
     "bic": "BICCODE"
   },
   "taxNumber": "12/345/67890",
-  "vatId": "DE123456789"
+  "vatId": "DE123456789",
+  "countryCode": "DE"
 }

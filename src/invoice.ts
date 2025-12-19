@@ -1,15 +1,15 @@
 #!/usr/bin/env node
-import { Packer } from 'docx';
 import * as fs from 'fs';
 import * as path from 'path';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
-import { Provider, Client, Translations, InvoiceContext, ResolvedLineItem } from './types.js';
+import { Provider, Client, Translations, InvoiceContext, ResolvedLineItem, EInvoiceFormat, CountryCode } from './types.js';
 import { formatDate, formatCurrency, getServiceDescription, calculateDueDate } from './utils.js';
-import { buildDocument, TemplateName } from './document.js';
+import { generateInvoiceFromTemplate } from './lib/template-generator.js';
 import { createEmail } from './email.js';
 import { validateProvider, validateClient } from './schemas/index.js';
 import { saveToHistory } from './history.js';
+import { canGenerateEInvoice, getDefaultFormat, validateForEInvoice, generateEInvoice, saveEInvoice } from './einvoice/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,23 +20,41 @@ const args = process.argv.slice(2);
 // Check for --dry-run flag
 const isDryRun = args.includes('--dry-run');
 
+// Check for --einvoice flag
+const einvoiceArg = args.find(a => a.startsWith('--einvoice'));
+const shouldGenerateEInvoice = einvoiceArg !== undefined;
+const requestedEInvoiceFormat = einvoiceArg?.includes('=')
+  ? einvoiceArg.split('=')[1] as EInvoiceFormat
+  : undefined;
+
+// Check for --template flag
+const templateArg = args.find(a => a.startsWith('--template='));
+const templateOverride = templateArg?.split('=')[1];
+
 // Filter out flags to get positional arguments
 const positionalArgs = args.filter(a => !a.startsWith('--'));
 
 if (positionalArgs.length < 2) {
-  console.error('Usage: invoicr <client-folder> <quantity> [--month=MM-YYYY] [--email] [--test] [--dry-run]');
+  console.error('Usage: invoicr <client-folder> <quantity> [options]');
   console.error('');
   console.error('Options:');
-  console.error('  --month=MM-YYYY  Specify billing month (default: previous month)');
-  console.error('  --email          Create email draft with invoice attached');
-  console.error('  --test           Send test email to provider instead of client');
-  console.error('  --dry-run        Preview invoice without generating files');
+  console.error('  --month=MM-YYYY     Specify billing month (default: previous month)');
+  console.error('  --template=NAME     Use specific template (default, minimal, detailed, or custom)');
+  console.error('  --email             Create email draft with invoice attached');
+  console.error('  --test              Send test email to provider instead of client');
+  console.error('  --dry-run           Preview invoice without generating files');
+  console.error('  --einvoice          Generate e-invoice (auto-select format based on country)');
+  console.error('  --einvoice=FORMAT   Generate e-invoice with specific format');
+  console.error('                      Formats: xrechnung, zugferd, cius-ro, ubl, factur-x, etc.');
   console.error('');
   console.error('Examples:');
   console.error('  invoicr acme-hourly 40');
   console.error('  invoicr acme-daily 5 --month=10-2025');
   console.error('  invoicr acme-hourly 8 --email');
   console.error('  invoicr acme-daily 2 --dry-run');
+  console.error('  invoicr acme-hourly 40 --einvoice');
+  console.error('  invoicr acme-daily 5 --einvoice=xrechnung');
+  console.error('  invoicr acme-daily 5 --template=minimal');
   process.exit(1);
 }
 
@@ -62,14 +80,19 @@ const installProviderPath = path.join(installDir, 'provider.json');
 const providerPath = fs.existsSync(cwdProviderPath) ? cwdProviderPath : installProviderPath;
 
 // Client: check cwd paths first, then installation directory paths
+// New format: customer_data.json, legacy format: <name>.json
+const cwdNewPath = path.join(cwd, 'clients', clientFolder, 'customer_data.json');
 const cwdClientsPath = path.join(cwd, 'clients', clientFolder, `${clientFolder}.json`);
 const cwdLegacyPath = path.join(cwd, clientFolder, `${clientFolder}.json`);
+const installNewPath = path.join(installDir, 'clients', clientFolder, 'customer_data.json');
 const installClientsPath = path.join(installDir, 'clients', clientFolder, `${clientFolder}.json`);
 const installLegacyPath = path.join(installDir, clientFolder, `${clientFolder}.json`);
 const examplePath = path.join(installDir, 'examples', `${clientFolder}.json`);
 
-const clientPath = fs.existsSync(cwdClientsPath) ? cwdClientsPath :
+const clientPath = fs.existsSync(cwdNewPath) ? cwdNewPath :
+                   fs.existsSync(cwdClientsPath) ? cwdClientsPath :
                    fs.existsSync(cwdLegacyPath) ? cwdLegacyPath :
+                   fs.existsSync(installNewPath) ? installNewPath :
                    fs.existsSync(installClientsPath) ? installClientsPath :
                    fs.existsSync(installLegacyPath) ? installLegacyPath :
                    examplePath;
@@ -239,6 +262,9 @@ const baseFilename = `${translations.filePrefix}_${invoiceNumber}_${monthStr}`;
 const docxPath = path.join(outputDir, `${baseFilename}.docx`);
 const pdfPath = path.join(outputDir, `${baseFilename}.pdf`);
 
+// Determine template name for display (CLI override takes precedence)
+const effectiveTemplateName = templateOverride || client.templateName || 'default';
+
 // Dry run - show summary and exit
 if (isDryRun) {
   console.log('=== DRY RUN - Invoice Preview ===\n');
@@ -249,6 +275,7 @@ if (isDryRun) {
     console.log(`Due Date:       ${dueDate}`);
   }
   console.log(`Service Period: ${servicePeriod}`);
+  console.log(`Template:       ${effectiveTemplateName}`);
   console.log('');
 
   // Show line items
@@ -275,16 +302,24 @@ if (isDryRun) {
   if (shouldEmail) {
     console.log(`Email:          Would send to ${client.email?.to?.join(', ') || 'N/A'}`);
   }
+  if (shouldGenerateEInvoice) {
+    const providerCC = provider.countryCode as CountryCode | undefined;
+    const clientCC = client.countryCode as CountryCode | undefined;
+    if (canGenerateEInvoice(providerCC, clientCC)) {
+      const formatInfo = getDefaultFormat(providerCC!, requestedEInvoiceFormat);
+      if (formatInfo) {
+        console.log(`E-Invoice:      Would generate ${formatInfo.format.toUpperCase()} (${formatInfo.description})`);
+      }
+    } else {
+      console.log(`E-Invoice:      Not available (country mismatch or missing countryCode)`);
+    }
+  }
   console.log('\n=== No files were generated ===');
   process.exit(0);
 }
 
-// Build document with selected template
-const template: TemplateName = client.template || 'default';
-const doc = buildDocument(ctx, template);
-
 // Generate DOCX and PDF
-Packer.toBuffer(doc).then(buffer => {
+generateInvoiceFromTemplate(ctx, effectiveTemplateName).then(buffer => {
   fs.writeFileSync(docxPath, buffer);
   console.log(`DOCX created: ${docxPath}`);
 
@@ -320,6 +355,53 @@ Packer.toBuffer(doc).then(buffer => {
 
   // Create email if requested
   if (shouldEmail) {
-    createEmail(ctx, pdfPath, isTestMode);
+    createEmail(ctx, [pdfPath], isTestMode);
+  }
+
+  // Generate e-invoice if requested
+  if (shouldGenerateEInvoice) {
+    const providerCC = provider.countryCode as CountryCode | undefined;
+    const clientCC = client.countryCode as CountryCode | undefined;
+
+    if (!canGenerateEInvoice(providerCC, clientCC)) {
+      if (!providerCC || !clientCC) {
+        console.error('\nE-invoice generation skipped: Both provider and client must have countryCode set.');
+        console.error('Add "countryCode": "DE" (or appropriate country) to provider.json and client config.');
+      } else if (providerCC !== clientCC) {
+        console.error(`\nE-invoice generation skipped: Provider (${providerCC}) and client (${clientCC}) must be in the same country.`);
+      }
+    } else {
+      // Get format info
+      const formatInfo = getDefaultFormat(providerCC!, requestedEInvoiceFormat);
+      if (!formatInfo) {
+        console.error(`\nE-invoice generation failed: No format available for country ${providerCC}`);
+      } else {
+        // Validate before generation
+        const validation = validateForEInvoice(ctx, formatInfo.format, providerCC!, clientCC!);
+
+        if (validation.warnings.length > 0) {
+          console.log('\nE-invoice warnings:');
+          validation.warnings.forEach(w => console.log(`  ⚠ ${w}`));
+        }
+
+        if (!validation.valid) {
+          console.error('\nE-invoice generation failed - validation errors:');
+          validation.errors.forEach(e => console.error(`  ✗ ${e}`));
+        } else {
+          // Generate e-invoice
+          console.log(`\nGenerating ${formatInfo.format.toUpperCase()} e-invoice...`);
+
+          generateEInvoice(ctx, providerCC!, clientCC!, {
+            format: requestedEInvoiceFormat
+          }).then(async result => {
+            // Save e-invoice file
+            const savedPath = await saveEInvoice(result, outputDir);
+            console.log(`E-invoice created: ${savedPath}`);
+          }).catch(err => {
+            console.error(`E-invoice generation error: ${err.message}`);
+          });
+        }
+      }
+    }
   }
 });

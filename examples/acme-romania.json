@@ -1,0 +1,28 @@
+{
+  "name": "Acme România SRL",
+  "address": {
+    "street": "Bulevardul Unirii 45",
+    "city": "București, Sector 3",
+    "country": "România"
+  },
+  "language": "en",
+  "countryCode": "RO",
+  "invoicePrefix": "ARO",
+  "nextInvoiceNumber": 1,
+  "projectReference": "Software Development Contract",
+  "service": {
+    "description": "Software Development Services",
+    "billingType": "hourly",
+    "rate": 75,
+    "currency": "EUR"
+  },
+  "taxRate": 0.19,
+  "paymentTermsDays": 30,
+  "email": {
+    "to": ["facturare@acme.ro"]
+  },
+  "eInvoice": {
+    "buyerReference": "ARO-2024-001",
+    "preferredFormat": "cius-ro"
+  }
+}

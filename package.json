@@ -1,6 +1,6 @@
 {
   "name": "invoicr",
-  "version": "1.6.1",
+  "version": "1.7.0",
   "description": "CLI tool to generate DOCX/PDF invoices from JSON configs with email integration",
   "type": "module",
   "main": "dist/invoice.js",
@@ -10,10 +10,12 @@
     "invoicr-init": "dist/commands/init.js",
     "invoicr-list": "dist/commands/list.js",
     "invoicr-export": "dist/commands/export.js",
-    "invoicr-bulk": "dist/commands/bulk.js"
+    "invoicr-bulk": "dist/commands/bulk.js",
+    "invoicr-einvoice": "dist/commands/einvoice.js",
+    "invoicr-server": "dist/api/index.js"
   },
   "scripts": {
-    "build": "tsc && cp -r src/translations dist/",
+    "build": "tsc",
     "invoice": "node dist/invoice.js",
     "new-client": "node dist/create-client.js",
     "init": "node dist/commands/init.js",
@@ -22,7 +24,11 @@
     "bulk": "node dist/commands/bulk.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "dev": "tsx src/invoice.ts"
+    "dev": "tsx src/invoice.ts",
+    "api-server": "node dist/api/index.js",
+    "gui": "npm run api-server & sleep 1 && cd gui && npm run tauri:dev",
+    "gui:dev": "cd gui && npm run dev",
+    "gui:tauri": "cd gui && npm run tauri:dev"
   },
   "keywords": [
     "invoice",
@@ -42,6 +48,7 @@
   },
   "files": [
     "dist",
+    "templates",
     "examples",
     "README.md",
     "LICENSE"
@@ -50,7 +57,11 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
+    "@e-invoice-eu/core": "^2.1.15",
+    "angular-expressions": "^1.5.1",
     "docx": "^9.5.1",
+    "docxtemplater": "^3.67.6",
+    "pizzip": "^3.2.0",
     "zod": "^4.1.13"
   },
   "devDependencies": {

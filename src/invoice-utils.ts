@@ -65,14 +65,19 @@ export function findConfigPaths(
                        fs.existsSync(installProviderPath) ? installProviderPath : null;
 
   // Client: check cwd paths first, then installation directory paths
+  // New format: customer_data.json, legacy format: <name>.json
+  const cwdNewPath = path.join(cwd, 'clients', clientFolder, 'customer_data.json');
   const cwdClientsPath = path.join(cwd, 'clients', clientFolder, `${clientFolder}.json`);
   const cwdLegacyPath = path.join(cwd, clientFolder, `${clientFolder}.json`);
+  const installNewPath = path.join(installDir, 'clients', clientFolder, 'customer_data.json');
   const installClientsPath = path.join(installDir, 'clients', clientFolder, `${clientFolder}.json`);
   const installLegacyPath = path.join(installDir, clientFolder, `${clientFolder}.json`);
   const examplePath = path.join(installDir, 'examples', `${clientFolder}.json`);
 
-  const clientPath = fs.existsSync(cwdClientsPath) ? cwdClientsPath :
+  const clientPath = fs.existsSync(cwdNewPath) ? cwdNewPath :
+                     fs.existsSync(cwdClientsPath) ? cwdClientsPath :
                      fs.existsSync(cwdLegacyPath) ? cwdLegacyPath :
+                     fs.existsSync(installNewPath) ? installNewPath :
                      fs.existsSync(installClientsPath) ? installClientsPath :
                      fs.existsSync(installLegacyPath) ? installLegacyPath :
                      fs.existsSync(examplePath) ? examplePath : null;

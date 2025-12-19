@@ -159,7 +159,7 @@ async function main() {
         })
       };
 
-      const clientPath = path.join(clientDir, `${clientFolder}.json`);
+      const clientPath = path.join(clientDir, 'customer_data.json');
       fs.writeFileSync(clientPath, JSON.stringify(client, null, 2));
       console.log(`\nCreated: ${clientPath}`);
     }

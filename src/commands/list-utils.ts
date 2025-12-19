@@ -23,7 +23,10 @@ export function findClients(cwd: string): ClientInfo[] {
   if (fs.existsSync(clientsDir)) {
     const folders = fs.readdirSync(clientsDir);
     for (const folder of folders) {
-      const clientPath = path.join(clientsDir, folder, `${folder}.json`);
+      // Check for customer_data.json (new) or <folder>.json (legacy)
+      const newClientPath = path.join(clientsDir, folder, 'customer_data.json');
+      const legacyClientPath = path.join(clientsDir, folder, `${folder}.json`);
+      const clientPath = fs.existsSync(newClientPath) ? newClientPath : legacyClientPath;
       if (fs.existsSync(clientPath)) {
         try {
           const client = JSON.parse(fs.readFileSync(clientPath, 'utf8'));
@@ -52,7 +55,10 @@ export function findClients(cwd: string): ClientInfo[] {
     }
     const folderPath = path.join(cwd, folder);
     if (fs.statSync(folderPath).isDirectory()) {
-      const clientPath = path.join(folderPath, `${folder}.json`);
+      // Check for customer_data.json (new) or <folder>.json (legacy)
+      const newClientPath = path.join(folderPath, 'customer_data.json');
+      const legacyClientPath = path.join(folderPath, `${folder}.json`);
+      const clientPath = fs.existsSync(newClientPath) ? newClientPath : legacyClientPath;
       if (fs.existsSync(clientPath)) {
         // Don't add if already found in clients/
         if (clients.some(c => c.folder === folder)) {

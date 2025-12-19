@@ -1,0 +1,32 @@
+{
+  "name": "Bundesministerium für Digitales und Verkehr",
+  "address": {
+    "street": "Invalidenstraße 44",
+    "city": "10115 Berlin",
+    "country": { "de": "Deutschland", "en": "Germany" }
+  },
+  "language": "de",
+  "countryCode": "DE",
+  "invoicePrefix": "BMDV",
+  "nextInvoiceNumber": 1,
+  "projectReference": "IT-Beratungsrahmenvertrag 2024",
+  "service": {
+    "description": {
+      "de": "IT-Beratungsleistungen",
+      "en": "IT Consulting Services"
+    },
+    "billingType": "daily",
+    "rate": 1200,
+    "currency": "EUR"
+  },
+  "taxRate": 0.19,
+  "paymentTermsDays": 30,
+  "email": {
+    "to": ["rechnung@bmdv.bund.de"]
+  },
+  "eInvoice": {
+    "leitwegId": "991-12345-67",
+    "buyerReference": "BMDV-2024-IT-001",
+    "preferredFormat": "xrechnung"
+  }
+}

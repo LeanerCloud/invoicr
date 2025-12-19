@@ -87,15 +87,19 @@ export function buildAppleScript(
   senderEmail: string,
   toScript: string,
   ccScript: string,
-  pdfFilePath: string
+  attachments: string[]
 ): string {
+  const attachmentScript = attachments
+    .map(filePath => `make new attachment with properties {file name:"${filePath}"} at after the last paragraph`)
+    .join('\n    ');
+
   return `tell application "Mail"
   set emailBody to "${escapeAppleScript(emailBody.replace(/\n/g, '\r'))}"
   set newMessage to make new outgoing message with properties {subject:"${escapeAppleScript(emailSubject)}", content:emailBody, sender:"${senderEmail}"}
   tell newMessage
     ${toScript}
     ${ccScript}
-    make new attachment with properties {file name:"${pdfFilePath}"} at after the last paragraph
+    ${attachmentScript}
   end tell
   activate
   set visible of newMessage to true
@@ -104,34 +108,98 @@ end tell
 }
 
 /**
- * Create email draft in Mail.app with invoice attached
+ * Resolve the language to use for email (client's emailLanguage or invoice language)
  */
-export function createEmail(
-  ctx: InvoiceContext,
-  pdfFilePath: string,
-  isTestMode: boolean
-): void {
-  const { provider, client, invoiceNumber, servicePeriod, monthName, emailServiceDescription, totalAmount, currency, lang } = ctx;
+export function resolveEmailLanguage(client: InvoiceContext['client'], invoiceLang: string): string {
+  return client.emailLanguage || invoiceLang;
+}
 
-  // Use emailLanguage if specified, otherwise fall back to invoice language
-  const emailLang = client.emailLanguage || lang;
-  const translationsPath = path.join(__dirname, 'translations', `${emailLang}.json`);
-  const emailTranslations: Translations = JSON.parse(fs.readFileSync(translationsPath, 'utf8'));
-  const t = emailTranslations;
+/**
+ * Load email translations for a given language
+ * Checks GUI translations first (unified format), then backend translations
+ */
+export function loadEmailTranslations(lang: string): Translations {
+  // Check GUI translations first (unified format), then backend translations
+  const guiPath = path.join(__dirname, '..', 'gui', 'src', 'translations', `${lang}.json`);
+  const backendPath = path.join(__dirname, 'translations', `${lang}.json`);
+
+  let translationsPath: string | null = null;
+  if (fs.existsSync(guiPath)) {
+    translationsPath = guiPath;
+  } else if (fs.existsSync(backendPath)) {
+    translationsPath = backendPath;
+  }
+
+  if (!translationsPath) {
+    throw new Error(`Translations not found for language: ${lang}`);
+  }
+
+  const data = JSON.parse(fs.readFileSync(translationsPath, 'utf8'));
+
+  // Handle unified format: extract 'invoice' section
+  if (data.invoice) {
+    return data.invoice as Translations;
+  }
+
+  return data as Translations;
+}
+
+/**
+ * Get email templates (subject and body) from client config or translations
+ */
+export function getEmailTemplates(
+  client: InvoiceContext['client'],
+  translations: Translations
+): { subject: string; body: string } {
+  return {
+    subject: client.email?.subject || translations.email.subject,
+    body: client.email?.body || translations.email.body
+  };
+}
+
+/**
+ * Prepared email data ready for sending
+ */
+export interface PreparedEmail {
+  subject: string;
+  body: string;
+  senderEmail: string;
+  toAddresses: string[];
+  ccAddresses: string[];
+  appleScript: string;
+}
+
+/**
+ * Prepare all email content for sending
+ * Returns null if no recipients configured
+ */
+export function prepareEmail(
+  ctx: InvoiceContext,
+  attachments: string[],
+  isTestMode: boolean
+): PreparedEmail | null {
+  const { provider, client, invoiceNumber, servicePeriod, monthName, emailServiceDescription, totalAmount, currency, lang } = ctx;
 
   // Get recipients based on test mode
   const { to: toAddresses, cc: ccAddresses } = getRecipients(ctx, isTestMode);
 
   if (!toAddresses?.length) {
-    console.error('No email recipients configured in client JSON');
-    return;
+    return null;
   }
 
+  // Resolve language and load translations
+  const emailLang = resolveEmailLanguage(client, lang);
+  const translations = loadEmailTranslations(emailLang);
+
+  // Get templates
+  const templates = getEmailTemplates(client, translations);
+
+  // Format currency
   const totalAmountStr = formatCurrency(totalAmount, currency, emailLang);
 
   // Build email content
   const emailSubject = buildEmailSubject(
-    t.email.subject,
+    templates.subject,
     invoiceNumber,
     monthName,
     provider.name,
@@ -139,7 +207,7 @@ export function createEmail(
   );
 
   const emailBody = buildEmailBody(
-    t.email.body,
+    templates.body,
     invoiceNumber,
     servicePeriod,
     emailServiceDescription,
@@ -149,7 +217,7 @@ export function createEmail(
 
   // Build AppleScript recipient lines
   const toScript = buildRecipientScript(toAddresses, 'to');
-  const ccScript = ccAddresses?.length ? buildRecipientScript(ccAddresses, 'cc') : '';
+  const ccScript = (ccAddresses?.length) ? buildRecipientScript(ccAddresses, 'cc') : '';
 
   // Build complete AppleScript
   const appleScript = buildAppleScript(
@@ -158,18 +226,56 @@ export function createEmail(
     provider.email,
     toScript,
     ccScript,
-    pdfFilePath
+    attachments
   );
 
-  // Write AppleScript to temp file to avoid shell escaping issues
+  return {
+    subject: emailSubject,
+    body: emailBody,
+    senderEmail: provider.email,
+    toAddresses,
+    ccAddresses: ccAddresses || [],
+    appleScript
+  };
+}
+
+/**
+ * Execute AppleScript to create email draft in Mail.app
+ * This is the only OS-specific, non-testable part
+ */
+export function executeAppleScript(script: string): boolean {
   const tempScript = path.join(__dirname, '..', 'temp_email.scpt');
   try {
-    fs.writeFileSync(tempScript, appleScript);
+    fs.writeFileSync(tempScript, script);
     execSync(`osascript "${tempScript}"`);
     fs.unlinkSync(tempScript);
-    console.log(`Email draft created in Mail.app${isTestMode ? ' (TEST MODE - sent to provider)' : ''}`);
+    return true;
   } catch (err) {
-    console.error('Failed to create email. Make sure Mail.app is configured.');
     if (fs.existsSync(tempScript)) fs.unlinkSync(tempScript);
+    return false;
+  }
+}
+
+/**
+ * Create email draft in Mail.app with invoice attached
+ */
+export function createEmail(
+  ctx: InvoiceContext,
+  attachments: string[],
+  isTestMode: boolean
+): void {
+  const prepared = prepareEmail(ctx, attachments, isTestMode);
+
+  if (!prepared) {
+    console.error('No email recipients configured in client JSON');
+    return;
+  }
+
+  const success = executeAppleScript(prepared.appleScript);
+
+  if (success) {
+    console.log(`Email draft created in Mail.app${isTestMode ? ' (TEST MODE - sent to provider)' : ''}`);
+  } else {
+    console.error('Failed to create email. Make sure Mail.app is configured.');
   }
 }

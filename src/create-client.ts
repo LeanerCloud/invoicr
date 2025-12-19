@@ -35,12 +35,18 @@ async function main() {
 
   if (templateName) {
     // Check cwd first, then installation directory for templates
+    // New format: customer_data.json, legacy format: <name>.json
+    const cwdNewPath = path.join(cwd, 'clients', templateName, 'customer_data.json');
     const cwdClientPath = path.join(cwd, 'clients', templateName, `${templateName}.json`);
     const cwdLegacyPath = path.join(cwd, templateName, `${templateName}.json`);
     const installExamplePath = path.join(installDir, 'examples', `${templateName}.json`);
+    const installNewPath = path.join(installDir, 'clients', templateName, 'customer_data.json');
     const installClientPath = path.join(installDir, 'clients', templateName, `${templateName}.json`);
 
-    if (fs.existsSync(cwdClientPath)) {
+    if (fs.existsSync(cwdNewPath)) {
+      template = JSON.parse(fs.readFileSync(cwdNewPath, 'utf8'));
+      console.log(`Using client "${templateName}" as template\n`);
+    } else if (fs.existsSync(cwdClientPath)) {
       template = JSON.parse(fs.readFileSync(cwdClientPath, 'utf8'));
       console.log(`Using client "${templateName}" as template\n`);
     } else if (fs.existsSync(cwdLegacyPath)) {
@@ -49,6 +55,9 @@ async function main() {
     } else if (fs.existsSync(installExamplePath)) {
       template = JSON.parse(fs.readFileSync(installExamplePath, 'utf8'));
       console.log(`Using example template "${templateName}"\n`);
+    } else if (fs.existsSync(installNewPath)) {
+      template = JSON.parse(fs.readFileSync(installNewPath, 'utf8'));
+      console.log(`Using client "${templateName}" as template\n`);
     } else if (fs.existsSync(installClientPath)) {
       template = JSON.parse(fs.readFileSync(installClientPath, 'utf8'));
       console.log(`Using client "${templateName}" as template\n`);
@@ -152,7 +161,7 @@ async function main() {
 
   // Create folder and save
   fs.mkdirSync(clientDir);
-  const clientPath = path.join(clientDir, `${folderName}.json`);
+  const clientPath = path.join(clientDir, 'customer_data.json');
   fs.writeFileSync(clientPath, JSON.stringify(client, null, 2));
 
   console.log(`\nClient created: ${clientPath}`);

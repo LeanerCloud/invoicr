@@ -36,6 +36,29 @@ describe('validateProvider', () => {
     expect(result.logoPath).toBe('logo.png');
   });
 
+  it('should accept optional countryCode DE', () => {
+    const providerWithCountry = { ...validProvider, countryCode: 'DE' };
+    const result = validateProvider(providerWithCountry);
+    expect(result.countryCode).toBe('DE');
+  });
+
+  it('should accept optional countryCode US', () => {
+    const providerWithCountry = { ...validProvider, countryCode: 'US' };
+    const result = validateProvider(providerWithCountry);
+    expect(result.countryCode).toBe('US');
+  });
+
+  it('should accept optional countryCode RO', () => {
+    const providerWithCountry = { ...validProvider, countryCode: 'RO' };
+    const result = validateProvider(providerWithCountry);
+    expect(result.countryCode).toBe('RO');
+  });
+
+  it('should throw on invalid countryCode', () => {
+    const invalid = { ...validProvider, countryCode: 'XX' };
+    expect(() => validateProvider(invalid)).toThrow('Invalid provider.json');
+  });
+
   it('should throw on missing name', () => {
     const invalid = { ...validProvider, name: '' };
     expect(() => validateProvider(invalid)).toThrow('Invalid provider.json');
@@ -176,10 +199,16 @@ describe('validateClient', () => {
     expect(result.taxRate).toBe(0.19);
   });
 
-  it('should accept optional template', () => {
-    const clientWithTemplate = { ...validClient, template: 'minimal' };
+  it('should accept optional templateName', () => {
+    const clientWithTemplate = { ...validClient, templateName: 'minimal' };
     const result = validateClient(clientWithTemplate);
-    expect(result.template).toBe('minimal');
+    expect(result.templateName).toBe('minimal');
+  });
+
+  it('should accept custom templateName', () => {
+    const clientWithTemplate = { ...validClient, templateName: 'my-custom-template' };
+    const result = validateClient(clientWithTemplate);
+    expect(result.templateName).toBe('my-custom-template');
   });
 
   it('should throw on invalid language', () => {
@@ -213,8 +242,126 @@ describe('validateClient', () => {
     expect(() => validateClient(invalid)).toThrow('Invalid client config');
   });
 
-  it('should throw on invalid template', () => {
-    const invalid = { ...validClient, template: 'custom' };
+  // E-invoice support tests
+  it('should accept optional countryCode DE', () => {
+    const clientWithCountry = { ...validClient, countryCode: 'DE' };
+    const result = validateClient(clientWithCountry);
+    expect(result.countryCode).toBe('DE');
+  });
+
+  it('should accept optional countryCode US', () => {
+    const clientWithCountry = { ...validClient, countryCode: 'US' };
+    const result = validateClient(clientWithCountry);
+    expect(result.countryCode).toBe('US');
+  });
+
+  it('should accept optional countryCode RO', () => {
+    const clientWithCountry = { ...validClient, countryCode: 'RO' };
+    const result = validateClient(clientWithCountry);
+    expect(result.countryCode).toBe('RO');
+  });
+
+  it('should throw on invalid countryCode', () => {
+    const invalid = { ...validClient, countryCode: 'XX' };
+    expect(() => validateClient(invalid)).toThrow('Invalid client config');
+  });
+
+  it('should accept optional eInvoice config with leitwegId', () => {
+    const clientWithEInvoice = {
+      ...validClient,
+      countryCode: 'DE',
+      eInvoice: {
+        leitwegId: '991-12345-67'
+      }
+    };
+    const result = validateClient(clientWithEInvoice);
+    expect(result.eInvoice?.leitwegId).toBe('991-12345-67');
+  });
+
+  it('should accept optional eInvoice config with buyerReference', () => {
+    const clientWithEInvoice = {
+      ...validClient,
+      countryCode: 'DE',
+      eInvoice: {
+        buyerReference: 'PO-2024-001'
+      }
+    };
+    const result = validateClient(clientWithEInvoice);
+    expect(result.eInvoice?.buyerReference).toBe('PO-2024-001');
+  });
+
+  it('should accept optional eInvoice config with preferredFormat xrechnung', () => {
+    const clientWithEInvoice = {
+      ...validClient,
+      countryCode: 'DE',
+      eInvoice: {
+        preferredFormat: 'xrechnung'
+      }
+    };
+    const result = validateClient(clientWithEInvoice);
+    expect(result.eInvoice?.preferredFormat).toBe('xrechnung');
+  });
+
+  it('should accept optional eInvoice config with preferredFormat zugferd', () => {
+    const clientWithEInvoice = {
+      ...validClient,
+      countryCode: 'DE',
+      eInvoice: {
+        preferredFormat: 'zugferd'
+      }
+    };
+    const result = validateClient(clientWithEInvoice);
+    expect(result.eInvoice?.preferredFormat).toBe('zugferd');
+  });
+
+  it('should accept optional eInvoice config with preferredFormat cius-ro', () => {
+    const clientWithEInvoice = {
+      ...validClient,
+      countryCode: 'RO',
+      eInvoice: {
+        preferredFormat: 'cius-ro'
+      }
+    };
+    const result = validateClient(clientWithEInvoice);
+    expect(result.eInvoice?.preferredFormat).toBe('cius-ro');
+  });
+
+  it('should accept optional eInvoice config with preferredFormat ubl', () => {
+    const clientWithEInvoice = {
+      ...validClient,
+      countryCode: 'US',
+      eInvoice: {
+        preferredFormat: 'ubl'
+      }
+    };
+    const result = validateClient(clientWithEInvoice);
+    expect(result.eInvoice?.preferredFormat).toBe('ubl');
+  });
+
+  it('should accept complete eInvoice config', () => {
+    const clientWithFullEInvoice = {
+      ...validClient,
+      countryCode: 'DE',
+      eInvoice: {
+        leitwegId: '991-12345-67',
+        buyerReference: 'BMDV-2024-IT-001',
+        preferredFormat: 'xrechnung'
+      }
+    };
+    const result = validateClient(clientWithFullEInvoice);
+    expect(result.eInvoice?.leitwegId).toBe('991-12345-67');
+    expect(result.eInvoice?.buyerReference).toBe('BMDV-2024-IT-001');
+    expect(result.eInvoice?.preferredFormat).toBe('xrechnung');
+  });
+
+  it('should throw on invalid eInvoice preferredFormat', () => {
+    const invalid = {
+      ...validClient,
+      countryCode: 'DE',
+      eInvoice: {
+        preferredFormat: 'invalid-format'
+      }
+    };
     expect(() => validateClient(invalid)).toThrow('Invalid client config');
   });
 });
