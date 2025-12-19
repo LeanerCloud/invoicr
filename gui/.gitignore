@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Test coverage
+coverage/
+
+# OS
+.DS_Store
+
+# Logs
+*.log
+# Rust build output
+src-tauri/target/
