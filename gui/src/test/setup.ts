@@ -17,12 +17,20 @@ Object.defineProperty(window, 'matchMedia', {
 });
 
 // Mock Tauri API
-vi.mock('@tauri-apps/api/tauri', () => ({
+vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),
 }));
 
-vi.mock('@tauri-apps/api/shell', () => ({
+vi.mock('@tauri-apps/plugin-shell', () => ({
   open: vi.fn(),
+}));
+
+vi.mock('@tauri-apps/plugin-dialog', () => ({
+  open: vi.fn(),
+  save: vi.fn(),
+  message: vi.fn(),
+  ask: vi.fn(),
+  confirm: vi.fn(),
 }));
 
 // Mock ResizeObserver

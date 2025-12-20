@@ -1,57 +1,16 @@
 {
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Invoicr",
+  "version": "1.7.0",
+  "identifier": "com.leanercloud.invoicr",
   "build": {
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build",
-    "devPath": "http://localhost:5173",
-    "distDir": "../dist"
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "../dist"
   },
-  "package": {
-    "productName": "Invoicr",
-    "version": "1.0.0"
-  },
-  "tauri": {
-    "allowlist": {
-      "all": false,
-      "shell": {
-        "open": "^(https?://|mailto:)"
-      },
-      "path": {
-        "all": true
-      },
-      "dialog": {
-        "all": true
-      }
-    },
-    "bundle": {
-      "active": true,
-      "category": "Business",
-      "copyright": "Copyright 2024 LeanerCloud",
-      "externalBin": [],
-      "icon": [
-        "icons/32x32.png",
-        "icons/128x128.png",
-        "icons/128x128@2x.png",
-        "icons/icon.icns",
-        "icons/icon.ico"
-      ],
-      "identifier": "com.leanercloud.invoicr",
-      "longDescription": "Professional invoice generation tool with PDF export, e-invoice support, and email integration.",
-      "macOS": {
-        "entitlements": null,
-        "exceptionDomain": "",
-        "frameworks": [],
-        "providerShortName": null,
-        "signingIdentity": null
-      },
-      "resources": [],
-      "shortDescription": "Invoice Generation Tool",
-      "targets": "all",
-      "windows": {
-        "certificateThumbprint": null,
-        "digestAlgorithm": "sha256",
-        "timestampUrl": ""
-      }
-    },
+  "app": {
+    "withGlobalTauri": true,
     "security": {
       "csp": "default-src 'self'; connect-src 'self' http://localhost:3847 http://127.0.0.1:3847; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'"
     },
@@ -69,5 +28,53 @@
         "visible": true
       }
     ]
+  },
+  "bundle": {
+    "active": true,
+    "category": "Business",
+    "copyright": "Copyright 2025 LeanerCloud",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "longDescription": "Professional invoice generation tool with PDF export, e-invoice support, and email integration.",
+    "shortDescription": "Invoice Generation Tool",
+    "targets": "all",
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": null,
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    },
+    "linux": {
+      "deb": {
+        "depends": []
+      },
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    },
+    "macOS": {
+      "entitlements": null,
+      "exceptionDomain": null,
+      "frameworks": [],
+      "providerShortName": null,
+      "signingIdentity": null,
+      "dmg": {
+        "appPosition": { "x": 180, "y": 170 },
+        "applicationFolderPosition": { "x": 480, "y": 170 },
+        "windowSize": { "width": 660, "height": 400 }
+      }
+    }
+  },
+  "plugins": {
+    "shell": {
+      "open": "^(https?://|mailto:)"
+    }
   }
 }

@@ -1,0 +1,168 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-tauri:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # macOS builds
+          - platform: macos-latest
+            args: '--target aarch64-apple-darwin'
+            rust_target: aarch64-apple-darwin
+            name: macOS-ARM64
+          - platform: macos-latest
+            args: '--target x86_64-apple-darwin'
+            rust_target: x86_64-apple-darwin
+            name: macOS-x64
+          # Windows builds
+          - platform: windows-latest
+            args: ''
+            rust_target: ''
+            name: Windows-x64
+          - platform: windows-latest
+            args: '--target aarch64-pc-windows-msvc'
+            rust_target: aarch64-pc-windows-msvc
+            name: Windows-ARM64
+          # Linux builds
+          - platform: ubuntu-22.04
+            args: ''
+            rust_target: ''
+            name: Linux-x64
+          - platform: ubuntu-22.04
+            args: '--target aarch64-unknown-linux-gnu'
+            rust_target: aarch64-unknown-linux-gnu
+            name: Linux-ARM64
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-action@stable
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - name: Install dependencies (Ubuntu)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.0-dev libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+
+      - name: Install cross-compilation tools (Linux ARM64)
+        if: matrix.platform == 'ubuntu-22.04' && matrix.rust_target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          echo "PKG_CONFIG_SYSROOT_DIR=/usr/aarch64-linux-gnu" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig" >> $GITHUB_ENV
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+
+      - name: Install npm dependencies (root)
+        run: npm ci
+
+      - name: Install npm dependencies (gui)
+        run: npm ci
+        working-directory: gui
+
+      - name: Build CLI
+        run: npm run build
+
+      - name: Build Tauri
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: gui
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Invoicr ${{ github.ref_name }}'
+          releaseBody: |
+            See the assets below to download the installer for your platform.
+
+            **Installation:**
+            - **macOS**: Download the `.dmg` file, open it, and drag Invoicr to Applications
+            - **Windows**: Download the `.exe` installer and run it
+            - **Linux**: Download the `.deb` file (Debian/Ubuntu) or `.AppImage` (portable)
+
+            **CLI Installation:**
+            ```bash
+            npm install -g invoicr
+            ```
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
+
+  publish-release:
+    needs: build-tauri
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get release ID
+        id: get_release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tag = context.ref.replace('refs/tags/', '');
+            const releases = await github.rest.repos.listReleases({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            const release = releases.data.find(r => r.tag_name === tag);
+            if (!release) {
+              throw new Error(`Release not found for tag ${tag}`);
+            }
+            return release.id;
+          result-encoding: string
+
+      - name: Publish Release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.updateRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: ${{ steps.get_release.outputs.result }},
+              draft: false
+            });
+
+  publish-npm:
+    needs: publish-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # Required for OIDC trusted publishing
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish to npm with provenance
+        run: npm publish --provenance --access public

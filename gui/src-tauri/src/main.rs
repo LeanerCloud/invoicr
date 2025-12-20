@@ -3,6 +3,8 @@
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             get_default_invoices_path,
         ])
@@ -12,12 +14,10 @@ fn main() {
 
 #[tauri::command]
 fn get_default_invoices_path() -> String {
-    // Return the user's Documents/invoices path
-    if let Some(docs) = dirs::document_dir() {
-        docs.join("invoices").to_string_lossy().to_string()
-    } else if let Some(home) = dirs::home_dir() {
-        home.join("invoices").to_string_lossy().to_string()
+    // Return ~/.invoicr as the default data path
+    if let Some(home) = dirs::home_dir() {
+        home.join(".invoicr").to_string_lossy().to_string()
     } else {
-        "./invoices".to_string()
+        "./.invoicr".to_string()
     }
 }

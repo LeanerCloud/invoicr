@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Invoicr
+Comment=Professional Invoice Generator
+GenericName=Invoice Generator
+Exec=invoicr
+Icon=invoicr
+Type=Application
+Categories=Office;Finance;
+Keywords=invoice;billing;pdf;document;
+StartupNotify=true
+Terminal=false

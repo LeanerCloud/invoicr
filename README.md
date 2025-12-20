@@ -39,22 +39,36 @@ invoicr acme-hourly 40 --email
 
 A desktop application for visual invoice management.
 
-### Running the GUI
+### Installing the GUI
+
+**Option 1: Via npm (recommended)**
+
+```bash
+npm install -g invoicr
+invoicr-gui
+```
+
+The GUI binary is automatically downloaded during installation.
+
+**Option 2: Download installer**
+
+Download from [GitHub Releases](https://github.com/LeanerCloud/invoicr/releases):
+
+| Platform | Download |
+|----------|----------|
+| macOS (Apple Silicon) | `Invoicr_x.x.x_aarch64.dmg` |
+| macOS (Intel) | `Invoicr_x.x.x_x64.dmg` |
+| Windows | `Invoicr_x.x.x_x64-setup.exe` |
+| Linux (Debian/Ubuntu) | `invoicr_x.x.x_amd64.deb` |
+| Linux (Portable) | `invoicr_x.x.x_amd64.AppImage` |
+
+**Option 3: Build from source**
 
 ```bash
 # Prerequisites: Rust (https://rustup.rs/)
-
-# Clone and setup
 git clone https://github.com/LeanerCloud/invoicr.git
-cd invoicr
-npm install
-npm run build
-
-# Install GUI dependencies
-cd gui && npm install && cd ..
-
-# Run (starts API server + GUI)
-npm run gui
+cd invoicr && npm install && npm run build
+cd gui && npm install && npm run tauri:build
 ```
 
 ### GUI Features
@@ -103,6 +117,7 @@ E-invoicing requires `countryCode` in both provider and client configs.
 | `invoicr-export` | Export history |
 | `invoicr-einvoice` | Generate e-invoice |
 | `invoicr-server` | Start API server |
+| `invoicr-gui` | Launch desktop app |
 
 ### Common Options
 

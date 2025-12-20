@@ -188,7 +188,7 @@ Submitted via Invoicr Settings`;
     const url = `https://github.com/LeanerCloud/invoicr/issues/new?title=${encodeURIComponent(issueTitle)}&body=${encodeURIComponent(issueBody)}&labels=translation`;
 
     try {
-      const { open } = await import('@tauri-apps/api/shell');
+      const { open } = await import('@tauri-apps/plugin-shell');
       await open(url);
     } catch (err) {
       console.error('Failed to open link:', err);

@@ -1,7 +1,7 @@
 {
   "name": "invoicr",
   "version": "1.7.0",
-  "description": "CLI tool to generate DOCX/PDF invoices from JSON configs with email integration",
+  "description": "CLI tool and desktop app to generate DOCX/PDF invoices with e-invoice support",
   "type": "module",
   "main": "dist/invoice.js",
   "bin": {
@@ -12,10 +12,12 @@
     "invoicr-export": "dist/commands/export.js",
     "invoicr-bulk": "dist/commands/bulk.js",
     "invoicr-einvoice": "dist/commands/einvoice.js",
-    "invoicr-server": "dist/api/index.js"
+    "invoicr-server": "dist/api/index.js",
+    "invoicr-gui": "dist/commands/gui.js"
   },
   "scripts": {
     "build": "tsc",
+    "postinstall": "node scripts/postinstall.js || true",
     "invoice": "node dist/invoice.js",
     "new-client": "node dist/create-client.js",
     "init": "node dist/commands/init.js",
@@ -38,6 +40,11 @@
     "billing",
     "freelance",
     "cli",
+    "gui",
+    "desktop",
+    "e-invoice",
+    "xrechnung",
+    "zugferd",
     "generator"
   ],
   "author": "Cristian Magherusan-Stanciu <cristi@leanercloud.com>",
@@ -50,6 +57,8 @@
     "dist",
     "templates",
     "examples",
+    "scripts/postinstall.js",
+    "bin",
     "README.md",
     "LICENSE"
   ],

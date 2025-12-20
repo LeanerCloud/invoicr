@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Building2, Users, ChevronRight, ChevronDown, Plus, MessageSquare, Briefcase, Info, Settings, FileText } from 'lucide-react';
-import { open } from '@tauri-apps/api/shell';
+import { open } from '@tauri-apps/plugin-shell';
 import { personasApi, clientsApi, demoApi, type PersonaInfo, type ClientSummary } from '../../services/api';
 import { AboutModal } from './AboutModal';
 import { SettingsModal } from './SettingsModal';

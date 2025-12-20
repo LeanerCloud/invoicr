@@ -1,5 +1,5 @@
 import { X, ExternalLink, Mail, Github, Cloud } from 'lucide-react';
-import { open } from '@tauri-apps/api/shell';
+import { open } from '@tauri-apps/plugin-shell';
 import { getStoredLanguage, getStoredEmailContent } from './SettingsModal';
 
 interface AboutModalProps {
