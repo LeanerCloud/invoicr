@@ -1,6 +1,6 @@
 {
   "name": "invoicr",
-  "version": "1.7.2",
+  "version": "1.7.3",
   "description": "CLI tool and desktop app to generate DOCX/PDF invoices with e-invoice support",
   "type": "module",
   "main": "dist/invoice.js",
