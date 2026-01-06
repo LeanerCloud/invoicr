@@ -1,6 +1,6 @@
-import { ArrowLeft, History, FileText, Calendar, Loader2, AlertCircle, Eye, Mail } from 'lucide-react';
+import { ArrowLeft, History, FileText, Calendar, Loader2, AlertCircle, Eye, Mail, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import { useClient, useClientHistory } from '../../hooks/useClients';
+import { useClient, useClientHistory, useDeleteInvoice } from '../../hooks/useClients';
 import { InvoiceHistoryEntry, fileApi } from '../../services/api';
 
 interface InvoiceHistoryProps {
@@ -12,6 +12,7 @@ interface InvoiceHistoryProps {
 export function InvoiceHistory({ persona, clientName, onBack }: InvoiceHistoryProps) {
   const { data: clientData, isLoading: clientLoading } = useClient(persona, clientName);
   const { data: historyData, isLoading: historyLoading, error } = useClientHistory(persona, clientName);
+  const deleteInvoiceMutation = useDeleteInvoice(persona, clientName);
 
   const isLoading = clientLoading || historyLoading;
   const invoices = historyData?.invoices || [];
@@ -128,6 +129,8 @@ export function InvoiceHistory({ persona, clientName, onBack }: InvoiceHistoryPr
                   billingType={client?.service.billingType || 'hourly'}
                   persona={persona}
                   clientName={clientName}
+                  onDelete={() => deleteInvoiceMutation.mutate(invoice.invoiceNumber)}
+                  isDeleting={deleteInvoiceMutation.isPending}
                 />
               ))}
             </tbody>
@@ -144,11 +147,14 @@ interface InvoiceRowProps {
   billingType: string;
   persona: string;
   clientName: string;
+  onDelete: () => void;
+  isDeleting: boolean;
 }
 
-function InvoiceRow({ invoice, currencySymbol, billingType, persona, clientName }: InvoiceRowProps) {
+function InvoiceRow({ invoice, currencySymbol, billingType, persona, clientName, onDelete, isDeleting }: InvoiceRowProps) {
   const [isOpening, setIsOpening] = useState(false);
   const [isEmailing, setIsEmailing] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const quantityLabel = billingType === 'hourly' ? 'hrs' :
     billingType === 'daily' ? 'days' : 'units';
@@ -214,38 +220,68 @@ function InvoiceRow({ invoice, currencySymbol, billingType, persona, clientName 
         </span>
       </td>
       <td className="px-4 py-3 text-center">
-        <div className="flex items-center justify-center gap-1">
-          {invoice.pdfPath ? (
-            <>
-              <button
-                onClick={handleOpenPdf}
-                disabled={isOpening}
-                className="inline-flex items-center px-2 py-1 bg-primary-50 text-primary-600 text-sm rounded hover:bg-primary-100 transition-colors disabled:opacity-50"
-                title="Open PDF"
-              >
-                {isOpening ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Eye className="w-4 h-4" />
-                )}
-              </button>
-              <button
-                onClick={handleEmailInvoice}
-                disabled={isEmailing}
-                className="inline-flex items-center px-2 py-1 bg-blue-50 text-blue-600 text-sm rounded hover:bg-blue-100 transition-colors disabled:opacity-50"
-                title="Email Invoice"
-              >
-                {isEmailing ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Mail className="w-4 h-4" />
-                )}
-              </button>
-            </>
-          ) : (
-            <span className="text-gray-400 text-sm">—</span>
-          )}
-        </div>
+        {showDeleteConfirm ? (
+          <div className="flex items-center justify-center gap-2">
+            <span className="text-xs text-red-600">Delete?</span>
+            <button
+              onClick={() => {
+                onDelete();
+                setShowDeleteConfirm(false);
+              }}
+              disabled={isDeleting}
+              className="px-2 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 transition-colors disabled:opacity-50"
+            >
+              {isDeleting ? 'Deleting...' : 'Yes'}
+            </button>
+            <button
+              onClick={() => setShowDeleteConfirm(false)}
+              disabled={isDeleting}
+              className="px-2 py-1 bg-gray-200 text-gray-700 text-xs rounded hover:bg-gray-300 transition-colors disabled:opacity-50"
+            >
+              No
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center gap-1">
+            {invoice.pdfPath ? (
+              <>
+                <button
+                  onClick={handleOpenPdf}
+                  disabled={isOpening}
+                  className="inline-flex items-center px-2 py-1 bg-primary-50 text-primary-600 text-sm rounded hover:bg-primary-100 transition-colors disabled:opacity-50"
+                  title="Open PDF"
+                >
+                  {isOpening ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
+                </button>
+                <button
+                  onClick={handleEmailInvoice}
+                  disabled={isEmailing}
+                  className="inline-flex items-center px-2 py-1 bg-blue-50 text-blue-600 text-sm rounded hover:bg-blue-100 transition-colors disabled:opacity-50"
+                  title="Email Invoice"
+                >
+                  {isEmailing ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Mail className="w-4 h-4" />
+                  )}
+                </button>
+              </>
+            ) : (
+              <span className="text-gray-400 text-sm mr-1">—</span>
+            )}
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="inline-flex items-center px-2 py-1 bg-red-50 text-red-600 text-sm rounded hover:bg-red-100 transition-colors"
+              title="Delete Invoice"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </td>
     </tr>
   );

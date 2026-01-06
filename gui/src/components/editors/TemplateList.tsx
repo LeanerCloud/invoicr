@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
-import { FileText, Download, Trash2, Loader2, AlertCircle, Lock, Copy, ExternalLink, Upload } from 'lucide-react';
-import { useTemplates, useDeleteTemplate, useDownloadTemplate, useCopyTemplate, useOpenTemplate, useUploadTemplate } from '../../hooks/useTemplates';
+import { FileText, Download, Trash2, Loader2, AlertCircle, Lock, Copy, ExternalLink, Upload, Pencil, FolderOpen } from 'lucide-react';
+import { useTemplates, useDeleteTemplate, useDownloadTemplate, useCopyTemplate, useOpenTemplate, useUploadTemplate, useRenameTemplate, useOpenTemplatesFolder } from '../../hooks/useTemplates';
 import { ConfirmModal } from '../common/ConfirmModal';
 
 interface TemplateListProps {
@@ -14,6 +14,8 @@ export function TemplateList({ persona }: TemplateListProps) {
   const copyTemplate = useCopyTemplate(persona);
   const openTemplate = useOpenTemplate(persona);
   const uploadTemplate = useUploadTemplate(persona);
+  const renameTemplate = useRenameTemplate(persona);
+  const openFolder = useOpenTemplatesFolder(persona);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [deletingName, setDeletingName] = useState<string | null>(null);
@@ -21,6 +23,17 @@ export function TemplateList({ persona }: TemplateListProps) {
   const [templateToDelete, setTemplateToDelete] = useState<string | null>(null);
   const [copyingName, setCopyingName] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+
+  // Copy modal state
+  const [templateToCopy, setTemplateToCopy] = useState<string | null>(null);
+  const [newCopyName, setNewCopyName] = useState('');
+  const [copyError, setCopyError] = useState<string | null>(null);
+
+  // Rename modal state
+  const [templateToRename, setTemplateToRename] = useState<string | null>(null);
+  const [newRenameName, setNewRenameName] = useState('');
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const [isRenaming, setIsRenaming] = useState(false);
 
   const handleDeleteConfirm = async () => {
     if (!templateToDelete) return;
@@ -46,16 +59,63 @@ export function TemplateList({ persona }: TemplateListProps) {
     }
   };
 
-  const handleCopy = async (name: string) => {
-    setCopyingName(name);
+  // Show copy modal with suggested name
+  const handleCopyClick = (name: string) => {
+    setTemplateToCopy(name);
+    setNewCopyName(`${name}-custom`);
+    setCopyError(null);
+  };
+
+  // Confirm copy with custom name
+  const handleCopyConfirm = async () => {
+    if (!templateToCopy || !newCopyName.trim()) return;
+
+    setCopyingName(templateToCopy);
+    setCopyError(null);
     try {
-      const result = await copyTemplate.mutateAsync({ name });
+      const result = await copyTemplate.mutateAsync({
+        name: templateToCopy,
+        newName: newCopyName.trim()
+      });
       // Open the copied template for editing
       await openTemplate.mutateAsync(result.name);
+      setTemplateToCopy(null);
+      setNewCopyName('');
     } catch (err) {
-      console.error('Copy failed:', err);
+      setCopyError((err as Error).message || 'Failed to copy template');
     } finally {
       setCopyingName(null);
+    }
+  };
+
+  // Show rename modal
+  const handleRenameClick = (name: string) => {
+    setTemplateToRename(name);
+    setNewRenameName(name);
+    setRenameError(null);
+  };
+
+  // Confirm rename
+  const handleRenameConfirm = async () => {
+    if (!templateToRename || !newRenameName.trim()) return;
+    if (newRenameName.trim() === templateToRename) {
+      setTemplateToRename(null);
+      return;
+    }
+
+    setIsRenaming(true);
+    setRenameError(null);
+    try {
+      await renameTemplate.mutateAsync({
+        oldName: templateToRename,
+        newName: newRenameName.trim()
+      });
+      setTemplateToRename(null);
+      setNewRenameName('');
+    } catch (err) {
+      setRenameError((err as Error).message || 'Failed to rename template');
+    } finally {
+      setIsRenaming(false);
     }
   };
 
@@ -127,6 +187,19 @@ export function TemplateList({ persona }: TemplateListProps) {
             onChange={handleFileSelect}
           />
           <button
+            onClick={() => openFolder.mutate()}
+            disabled={openFolder.isPending}
+            className="flex items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50"
+            title="Open templates folder in Finder"
+          >
+            {openFolder.isPending ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <FolderOpen className="w-4 h-4 mr-2" />
+            )}
+            Open Folder
+          </button>
+          <button
             onClick={() => fileInputRef.current?.click()}
             disabled={uploadTemplate.isPending}
             className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors disabled:opacity-50"
@@ -184,7 +257,7 @@ export function TemplateList({ persona }: TemplateListProps) {
                     <Download className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => handleCopy(name)}
+                    onClick={() => handleCopyClick(name)}
                     disabled={copyingName === name}
                     className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-md transition-colors"
                     title="Copy and edit"
@@ -220,7 +293,7 @@ export function TemplateList({ persona }: TemplateListProps) {
               Click "Copy and edit" on a built-in template to create your first custom template
             </p>
             <button
-              onClick={() => handleCopy('default')}
+              onClick={() => handleCopyClick('default')}
               className="text-primary-600 hover:text-primary-700 text-sm font-medium"
             >
               Create from default template
@@ -256,6 +329,13 @@ export function TemplateList({ persona }: TemplateListProps) {
                       title="Open in Word/Pages"
                     >
                       <ExternalLink className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleRenameClick(name)}
+                      className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-md transition-colors"
+                      title="Rename template"
+                    >
+                      <Pencil className="w-4 h-4" />
                     </button>
                     <button
                       onClick={(e) => {
@@ -343,6 +423,118 @@ export function TemplateList({ persona }: TemplateListProps) {
         onConfirm={handleDeleteConfirm}
         onCancel={() => setTemplateToDelete(null)}
       />
+
+      {/* Copy Template Modal */}
+      {templateToCopy && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Copy Template</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Enter a name for the new template:
+            </p>
+            <input
+              type="text"
+              value={newCopyName}
+              onChange={(e) => setNewCopyName(e.target.value)}
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm mb-4"
+              placeholder="Template name"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleCopyConfirm();
+                if (e.key === 'Escape') {
+                  setTemplateToCopy(null);
+                  setNewCopyName('');
+                }
+              }}
+            />
+            {copyError && (
+              <p className="text-red-600 text-sm mb-4">{copyError}</p>
+            )}
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setTemplateToCopy(null);
+                  setNewCopyName('');
+                  setCopyError(null);
+                }}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCopyConfirm}
+                disabled={!newCopyName.trim() || !!copyingName}
+                className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors disabled:opacity-50"
+              >
+                {copyingName ? (
+                  <span className="flex items-center">
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Copying...
+                  </span>
+                ) : (
+                  'Copy & Edit'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rename Template Modal */}
+      {templateToRename && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Rename Template</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Enter the new name for "{templateToRename}":
+            </p>
+            <input
+              type="text"
+              value={newRenameName}
+              onChange={(e) => setNewRenameName(e.target.value)}
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm mb-4"
+              placeholder="Template name"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleRenameConfirm();
+                if (e.key === 'Escape') {
+                  setTemplateToRename(null);
+                  setNewRenameName('');
+                }
+              }}
+            />
+            {renameError && (
+              <p className="text-red-600 text-sm mb-4">{renameError}</p>
+            )}
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setTemplateToRename(null);
+                  setNewRenameName('');
+                  setRenameError(null);
+                }}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRenameConfirm}
+                disabled={!newRenameName.trim() || isRenaming}
+                className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors disabled:opacity-50"
+              >
+                {isRenaming ? (
+                  <span className="flex items-center">
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Renaming...
+                  </span>
+                ) : (
+                  'Rename'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

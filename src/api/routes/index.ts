@@ -8,12 +8,12 @@ import type { ServerContext, RouteHandler } from '../types.js';
 import { healthCheck, libreOfficeStatus, getCountries } from './system.js';
 import { getPersonas, createPersona, getPersona, updatePersona, deletePersona } from './personas.js';
 import { getProvider, updateProvider } from './providers.js';
-import { getClients, createNewClient, getClient, updateClient, deleteClient, getClientHistory } from './clients.js';
+import { getClients, createNewClient, getClient, updateClient, deleteClient, getClientHistory, cloneClientHandler, deleteClientInvoice } from './clients.js';
 import { previewInvoice, generateInvoice } from './invoices.js';
 import { getEInvoiceFormats, getEInvoiceCountries, validateEInvoice, generateEInvoiceDoc } from './einvoices.js';
-import { getTemplates, getTemplate, uploadTemplate, deleteTemplate, copyTemplate, openTemplate } from './templates.js';
+import { getTemplates, getTemplate, uploadTemplate, deleteTemplate, copyTemplate, openTemplate, renameTemplate, openTemplatesFolder } from './templates.js';
 import { getAvailableTranslations, getTranslation } from './translations.js';
-import { openFile, emailInvoice } from './files.js';
+import { openFile, emailInvoice, batchEmailInvoices } from './files.js';
 import { initDemo } from './demo.js';
 
 export interface RouteDefinition {
@@ -52,6 +52,10 @@ export function getRouteDefinitions(ctx: ServerContext): RouteDefinition[] {
 
     // Client history (per persona)
     { method: 'GET', path: '/api/personas/:persona/clients/:name/history', handler: getClientHistory(ctx) },
+    { method: 'DELETE', path: '/api/personas/:persona/clients/:name/history/:invoiceNumber', handler: deleteClientInvoice(ctx) },
+
+    // Clone client (per persona)
+    { method: 'POST', path: '/api/personas/:persona/clients/:name/clone', handler: cloneClientHandler(ctx) },
 
     // Invoice generation (per persona)
     { method: 'POST', path: '/api/personas/:persona/invoice/preview', handler: previewInvoice(ctx) },
@@ -72,6 +76,7 @@ export function getRouteDefinitions(ctx: ServerContext): RouteDefinition[] {
     // File operations
     { method: 'POST', path: '/api/file/open', handler: openFile() },
     { method: 'POST', path: '/api/personas/:persona/invoice/email', handler: emailInvoice(ctx) },
+    { method: 'POST', path: '/api/personas/:persona/invoice/batch-email', handler: batchEmailInvoices(ctx) },
 
     // Invoice templates (per persona)
     { method: 'GET', path: '/api/personas/:persona/templates', handler: getTemplates(ctx) },
@@ -80,6 +85,8 @@ export function getRouteDefinitions(ctx: ServerContext): RouteDefinition[] {
     { method: 'DELETE', path: '/api/personas/:persona/templates/:name', handler: deleteTemplate(ctx) },
     { method: 'POST', path: '/api/personas/:persona/templates/:name/copy', handler: copyTemplate(ctx) },
     { method: 'POST', path: '/api/personas/:persona/templates/:name/open', handler: openTemplate(ctx) },
+    { method: 'POST', path: '/api/personas/:persona/templates/:name/rename', handler: renameTemplate(ctx) },
+    { method: 'POST', path: '/api/personas/:persona/templates/folder/open', handler: openTemplatesFolder(ctx) },
 
     // Demo data
     { method: 'POST', path: '/api/init-demo', handler: initDemo(ctx) },

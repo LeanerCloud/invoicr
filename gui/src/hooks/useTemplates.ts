@@ -76,3 +76,21 @@ export function useOpenTemplate(persona: string) {
     mutationFn: (name: string) => templatesApi.open(persona, name),
   });
 }
+
+export function useRenameTemplate(persona: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ oldName, newName }: { oldName: string; newName: string }) =>
+      templatesApi.rename(persona, oldName, newName),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['personas', persona, 'templates'] });
+    },
+  });
+}
+
+export function useOpenTemplatesFolder(persona: string) {
+  return useMutation({
+    mutationFn: () => templatesApi.openFolder(persona),
+  });
+}

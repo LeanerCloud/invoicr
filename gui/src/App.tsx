@@ -8,8 +8,9 @@ import { InvoiceForm } from './components/editors/InvoiceForm';
 import { InvoiceHistory } from './components/history/InvoiceHistory';
 import { NewPersonaModal } from './components/editors/NewPersonaModal';
 import { TemplateList } from './components/editors/TemplateList';
+import { BatchInvoiceGenerator } from './components/editors/BatchInvoiceGenerator';
 
-type View = 'provider' | 'clients' | 'client-edit' | 'client-new' | 'invoice' | 'history' | 'templates';
+type View = 'provider' | 'clients' | 'client-edit' | 'client-new' | 'invoice' | 'history' | 'templates' | 'batch';
 
 function App() {
   const [currentView, setCurrentView] = useState<View>('clients');
@@ -127,6 +128,13 @@ function App() {
         return (
           <TemplateList
             persona={selectedPersona}
+          />
+        );
+      case 'batch':
+        return (
+          <BatchInvoiceGenerator
+            persona={selectedPersona}
+            onBack={handleBack}
           />
         );
       default:

@@ -179,3 +179,49 @@ export function createClient(
 
   return clientPath;
 }
+
+/**
+ * Clone an existing client to a new directory
+ */
+export interface CloneClientOptions {
+  resetCounter?: boolean;
+  newDisplayName?: string;
+  newInvoicePrefix?: string;
+}
+
+export function cloneClient(
+  clientsDir: string,
+  sourceName: string,
+  newDirectoryName: string,
+  options: CloneClientOptions = {}
+): string {
+  const { resetCounter = true, newDisplayName, newInvoicePrefix } = options;
+
+  // Load source client
+  const sourceInfo = getClientInfo(clientsDir, sourceName);
+  if (!sourceInfo) {
+    throw new Error(`Source client '${sourceName}' not found`);
+  }
+
+  // Check target doesn't exist
+  if (clientExists(clientsDir, newDirectoryName)) {
+    throw new Error(`Client '${newDirectoryName}' already exists`);
+  }
+
+  // Deep clone the config
+  const clonedConfig: Client = JSON.parse(JSON.stringify(sourceInfo.client));
+
+  // Apply options
+  if (resetCounter) {
+    clonedConfig.nextInvoiceNumber = 1;
+  }
+  if (newDisplayName) {
+    clonedConfig.name = newDisplayName;
+  }
+  if (newInvoicePrefix) {
+    clonedConfig.invoicePrefix = newInvoicePrefix;
+  }
+
+  // Create new client with cloned config
+  return createClient(clientsDir, newDirectoryName, clonedConfig);
+}

@@ -18,8 +18,10 @@ export {
   getAllClients,
   clientExists,
   createClient,
+  cloneClient,
   type ConfigPaths,
-  type ClientInfo
+  type ClientInfo,
+  type CloneClientOptions
 } from './config-manager.js';
 
 // Invoice Building
@@ -102,7 +104,17 @@ export {
 } from './template-generator.js';
 
 export { type TemplateName } from './document-generator.js';
-export { createEmail } from '../email.js';
+export { createEmail, createBatchEmail, type BatchInvoiceInfo, type PreparedEmail } from '../email.js';
+
+// Email grouping utilities
+export {
+  getPrimaryEmail,
+  groupClientsByEmail,
+  groupInvoicesByEmail,
+  hasSharedEmails,
+  getClientsWithSharedEmails,
+  type GeneratedInvoiceInfo
+} from './email-grouper.js';
 
 // E-invoice support
 export * from '../einvoice/index.js';

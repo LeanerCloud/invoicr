@@ -62,3 +62,39 @@ export function useDeleteClient(persona: string) {
     },
   });
 }
+
+export function useCloneClient(persona: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      name,
+      newDirectoryName,
+      newDisplayName,
+      newInvoicePrefix,
+      resetCounter,
+    }: {
+      name: string;
+      newDirectoryName: string;
+      newDisplayName?: string;
+      newInvoicePrefix?: string;
+      resetCounter?: boolean;
+    }) => clientsApi.clone(persona, name, newDirectoryName, { newDisplayName, newInvoicePrefix, resetCounter }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['personas', persona, 'clients'] });
+      queryClient.invalidateQueries({ queryKey: ['personas'] });
+    },
+  });
+}
+
+export function useDeleteInvoice(persona: string, clientName: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (invoiceNumber: string) =>
+      clientsApi.deleteInvoice(persona, clientName, invoiceNumber),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['personas', persona, 'clients', clientName, 'history'] });
+    },
+  });
+}

@@ -333,12 +333,15 @@ generateInvoiceFromTemplate(ctx, effectiveTemplateName).then(buffer => {
   }
 
   // Save to history
+  // For fixed billing type, store qty=1 and rate=totalAmount for cleaner display
+  const historyQuantity = billingType === 'fixed' ? 1 : quantity;
+  const historyRate = billingType === 'fixed' ? totalAmount : rate;
   saveToHistory(outputDir, {
     invoiceNumber,
     date: invoiceDateObj.toISOString().split('T')[0],
     month: monthName,
-    quantity,
-    rate,
+    quantity: historyQuantity,
+    rate: historyRate,
     totalAmount,
     currency,
     pdfPath

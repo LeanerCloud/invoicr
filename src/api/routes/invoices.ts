@@ -79,7 +79,7 @@ export function generateInvoice(ctx: ServerContext) {
       clientName,
       quantity,
       month,
-      template = 'default',
+      template,
       generatePdf = true,
       generateEInvoice: shouldGenerateEInvoice = false,
       eInvoiceFormat
@@ -106,6 +106,12 @@ export function generateInvoice(ctx: ServerContext) {
 
     const translations = loadTranslations(clientInfo.client.language);
 
+    // Use client's configured template if no explicit template was provided
+    const effectiveTemplate = template || clientInfo.client.templateName || 'default';
+
+    // Get persona directory for custom template lookup (clients path is personaDir/clients)
+    const personaDir = path.dirname(paths.clients);
+
     // Build invoice context
     const billingMonth = month ? parseMonthArg(month) : getDefaultBillingMonth();
     const options: BuildInvoiceOptions = {
@@ -126,7 +132,10 @@ export function generateInvoice(ctx: ServerContext) {
     };
 
     if (generatePdf && isLibreOfficeAvailable()) {
-      const docs = await generateDocuments(context, clientInfo.directory, template);
+      const docs = await generateDocuments(context, clientInfo.directory, {
+        template: effectiveTemplate,
+        personaDir
+      });
       result = {
         docxPath: docs.docxPath,
         pdfPath: docs.pdfPath,
@@ -135,7 +144,10 @@ export function generateInvoice(ctx: ServerContext) {
         currency: context.currency
       };
     } else {
-      const doc = await generateDocx(context, clientInfo.directory, template);
+      const doc = await generateDocx(context, clientInfo.directory, {
+        template: effectiveTemplate,
+        personaDir
+      });
       result = {
         docxPath: doc.docxPath,
         invoiceNumber: context.invoiceNumber,
@@ -169,14 +181,18 @@ export function generateInvoice(ctx: ServerContext) {
     }
 
     // Add to history
+    // For fixed billing type, store qty=1 and rate=totalAmount for cleaner display
+    const historyQuantity = context.billingType === 'fixed' ? 1 : context.quantity;
+    const historyRate = context.billingType === 'fixed' ? context.totalAmount : context.rate;
     addHistoryEntry(clientInfo.directory, {
       invoiceNumber: context.invoiceNumber,
       date: context.invoiceDate,
       month: context.monthName,
-      quantity: context.quantity,
-      rate: context.rate,
+      quantity: historyQuantity,
+      rate: historyRate,
       totalAmount: context.totalAmount,
-      currency: context.currency
+      currency: context.currency,
+      pdfPath: result.pdfPath
     });
 
     // Update client's next invoice number

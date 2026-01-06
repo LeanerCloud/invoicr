@@ -10,9 +10,10 @@ import {
   loadProvider,
   getClientInfo,
   buildInvoiceContext,
-  getDefaultBillingMonth
+  getDefaultBillingMonth,
+  getPrimaryEmail
 } from '../../lib/index.js';
-import { createEmail } from '../../email.js';
+import { createEmail, createBatchEmail, type BatchInvoiceInfo } from '../../email.js';
 import { loadTranslations } from '../helpers/translations.js';
 
 export function openFile() {
@@ -126,5 +127,118 @@ export function emailInvoice(ctx: ServerContext) {
     } catch (err) {
       res.error('Failed to create email draft', 500);
     }
+  };
+}
+
+/**
+ * Send batch email with multiple invoices attached
+ * Automatically groups invoices by recipient email if not already grouped
+ */
+export function batchEmailInvoices(ctx: ServerContext) {
+  return async (req: ApiRequest, res: ApiResponse): Promise<void> => {
+    const { persona } = req.params!;
+    const paths = ctx.getPersonaPaths(persona);
+    const { invoices, testMode = false } = req.body;
+
+    if (!invoices || !Array.isArray(invoices) || invoices.length === 0) {
+      res.error('invoices array is required and must not be empty', 400);
+      return;
+    }
+
+    // Validate and load all invoice data
+    const provider = loadProvider(paths.provider);
+    const batchInfoByEmail = new Map<string, BatchInvoiceInfo[]>();
+
+    for (const invoice of invoices) {
+      const { clientName, pdfPath, eInvoicePath } = invoice;
+
+      if (!clientName || !pdfPath) {
+        res.error(`Each invoice must have clientName and pdfPath`, 400);
+        return;
+      }
+
+      if (!fs.existsSync(pdfPath)) {
+        res.error(`PDF file not found: ${pdfPath}`, 404);
+        return;
+      }
+
+      const clientInfo = getClientInfo(paths.clients, clientName);
+      if (!clientInfo) {
+        res.error(`Client '${clientName}' not found`, 404);
+        return;
+      }
+
+      // Get primary email for grouping
+      const primaryEmail = getPrimaryEmail(clientInfo.client);
+      if (!primaryEmail) {
+        res.error(`Client '${clientName}' has no email configured`, 400);
+        return;
+      }
+
+      // Look up invoice in history to get accurate data
+      const historyPath = path.join(clientInfo.directory, 'history.json');
+      let invoiceData = {
+        invoiceNumber: path.basename(pdfPath, '.pdf'),
+        month: '',
+        totalAmount: 0,
+        currency: clientInfo.client.service.currency
+      };
+
+      if (fs.existsSync(historyPath)) {
+        try {
+          const history = JSON.parse(fs.readFileSync(historyPath, 'utf8'));
+          const historicalInvoice = history.invoices?.find((inv: { pdfPath?: string; invoiceNumber: string }) =>
+            inv.pdfPath === pdfPath || pdfPath.includes(inv.invoiceNumber)
+          );
+          if (historicalInvoice) {
+            invoiceData = {
+              invoiceNumber: historicalInvoice.invoiceNumber,
+              month: historicalInvoice.month,
+              totalAmount: historicalInvoice.totalAmount,
+              currency: historicalInvoice.currency || clientInfo.client.service.currency
+            };
+          }
+        } catch {
+          // History parsing failed, use defaults
+        }
+      }
+
+      const batchInfo: BatchInvoiceInfo = {
+        client: clientInfo.client,
+        invoiceNumber: invoiceData.invoiceNumber,
+        monthName: invoiceData.month || 'Unknown',
+        totalAmount: invoiceData.totalAmount,
+        currency: invoiceData.currency,
+        pdfPath,
+        eInvoicePath: eInvoicePath && fs.existsSync(eInvoicePath) ? eInvoicePath : undefined
+      };
+
+      // Group by email
+      const existing = batchInfoByEmail.get(primaryEmail) || [];
+      existing.push(batchInfo);
+      batchInfoByEmail.set(primaryEmail, existing);
+    }
+
+    // Send batch emails (one per unique email address)
+    const results: { email: string; count: number; success: boolean }[] = [];
+
+    for (const [email, batchInvoices] of batchInfoByEmail) {
+      try {
+        const success = createBatchEmail(batchInvoices, provider, testMode);
+        results.push({ email, count: batchInvoices.length, success });
+      } catch (err) {
+        results.push({ email, count: batchInvoices.length, success: false });
+      }
+    }
+
+    const allSuccess = results.every(r => r.success);
+    const totalEmails = results.length;
+    const totalInvoices = invoices.length;
+
+    res.json({
+      success: allSuccess,
+      message: `Created ${totalEmails} email draft(s) with ${totalInvoices} invoice(s)`,
+      results
+    });
   };
 }

@@ -11,6 +11,7 @@
     "invoicr-list": "dist/commands/list.js",
     "invoicr-export": "dist/commands/export.js",
     "invoicr-bulk": "dist/commands/bulk.js",
+    "invoicr-clone": "dist/commands/clone-client.js",
     "invoicr-einvoice": "dist/commands/einvoice.js",
     "invoicr-server": "dist/api/index.js",
     "invoicr-gui": "dist/commands/gui.js"

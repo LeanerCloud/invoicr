@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Building2, Users, ChevronRight, ChevronDown, Plus, MessageSquare, Briefcase, Info, Settings, FileText } from 'lucide-react';
+import { Building2, Users, ChevronRight, ChevronDown, Plus, MessageSquare, Briefcase, Info, Settings, FileText, Layers } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-shell';
 import { personasApi, clientsApi, demoApi, type PersonaInfo, type ClientSummary } from '../../services/api';
 import { AboutModal } from './AboutModal';
 import { SettingsModal } from './SettingsModal';
 
-type View = 'provider' | 'clients' | 'client-edit' | 'client-new' | 'invoice' | 'history' | 'templates';
+type View = 'provider' | 'clients' | 'client-edit' | 'client-new' | 'invoice' | 'history' | 'templates' | 'batch';
 
 interface SidebarProps {
   currentView: View;
@@ -125,6 +125,11 @@ export function Sidebar({
     onNavigate('templates');
   };
 
+  const handleBatchClick = (personaName: string) => {
+    onSelectPersona(personaName);
+    onNavigate('batch');
+  };
+
   const handleClientClick = (personaName: string, clientName: string) => {
     onSelectClient(personaName, clientName);
     onNavigate('client-edit');
@@ -213,6 +218,19 @@ export function Sidebar({
                   >
                     <FileText className="mr-2 h-4 w-4 text-gray-400" />
                     <span>Templates</span>
+                  </button>
+
+                  {/* Batch Invoicing */}
+                  <button
+                    onClick={() => handleBatchClick(persona.name)}
+                    className={`w-full flex items-center px-2 py-1.5 text-sm rounded-md transition-colors ${
+                      isSelected && currentView === 'batch'
+                        ? 'bg-primary-50 text-primary-700'
+                        : 'text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    <Layers className="mr-2 h-4 w-4 text-gray-400" />
+                    <span>Batch Invoicing</span>
                   </button>
 
                   {/* Clients Header */}

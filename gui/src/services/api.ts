@@ -59,6 +59,8 @@ export interface ClientSummary {
   language: string;
   currency: string;
   countryCode?: string;
+  billingType: 'hourly' | 'daily' | 'fixed';
+  rate: number;
   hasHistory: boolean;
 }
 
@@ -174,6 +176,24 @@ export const clientsApi = {
     fetchApi<{ invoices: InvoiceHistoryEntry[] }>(
       `/api/personas/${encodeURIComponent(persona)}/clients/${encodeURIComponent(name)}/history`
     ),
+  deleteInvoice: (persona: string, name: string, invoiceNumber: string) =>
+    fetchApi<{ success: boolean; deleted: string }>(
+      `/api/personas/${encodeURIComponent(persona)}/clients/${encodeURIComponent(name)}/history/${encodeURIComponent(invoiceNumber)}`,
+      { method: 'DELETE' }
+    ),
+  clone: (
+    persona: string,
+    name: string,
+    newDirectoryName: string,
+    options?: { newDisplayName?: string; newInvoicePrefix?: string; resetCounter?: boolean }
+  ) =>
+    fetchApi<{ success: boolean; name: string; path: string }>(
+      `/api/personas/${encodeURIComponent(persona)}/clients/${encodeURIComponent(name)}/clone`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ newDirectoryName, ...options }),
+      }
+    ),
 };
 
 // Invoice API (per persona)
@@ -272,6 +292,24 @@ export const demoApi = {
     }),
 };
 
+// Batch email invoice info
+export interface BatchEmailInvoice {
+  clientName: string;
+  pdfPath: string;
+  eInvoicePath?: string;
+}
+
+// Batch email result
+export interface BatchEmailResult {
+  success: boolean;
+  message: string;
+  results: Array<{
+    email: string;
+    count: number;
+    success: boolean;
+  }>;
+}
+
 // File operations API
 export const fileApi = {
   open: (filePath: string) =>
@@ -285,6 +323,14 @@ export const fileApi = {
       {
         method: 'POST',
         body: JSON.stringify({ clientName, pdfPath, eInvoicePath, testMode }),
+      }
+    ),
+  batchEmailInvoices: (persona: string, invoices: BatchEmailInvoice[], testMode?: boolean) =>
+    fetchApi<BatchEmailResult>(
+      `/api/personas/${encodeURIComponent(persona)}/invoice/batch-email`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ invoices, testMode }),
       }
     ),
 };
@@ -347,6 +393,21 @@ export const templatesApi = {
   open: (persona: string, name: string) =>
     fetchApi<{ success: boolean; path: string; message: string }>(
       `/api/personas/${encodeURIComponent(persona)}/templates/${encodeURIComponent(name)}/open`,
+      {
+        method: 'POST',
+      }
+    ),
+  rename: (persona: string, oldName: string, newName: string) =>
+    fetchApi<{ success: boolean; path: string; oldName: string; newName: string }>(
+      `/api/personas/${encodeURIComponent(persona)}/templates/${encodeURIComponent(oldName)}/rename`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ newName }),
+      }
+    ),
+  openFolder: (persona: string) =>
+    fetchApi<{ success: boolean; path: string; message: string }>(
+      `/api/personas/${encodeURIComponent(persona)}/templates/folder/open`,
       {
         method: 'POST',
       }

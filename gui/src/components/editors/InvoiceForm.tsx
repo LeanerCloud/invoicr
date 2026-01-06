@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react';
-import { ArrowLeft, FileText, Loader2, AlertCircle, Check, Calendar, FileSpreadsheet, Mail } from 'lucide-react';
+import { ArrowLeft, FileText, Loader2, AlertCircle, Check, Calendar, FileSpreadsheet, Mail, Pencil } from 'lucide-react';
 import { useClient } from '../../hooks/useClients';
 import { useInvoicePreview, useGenerateInvoice, useLibreOfficeStatus } from '../../hooks/useInvoice';
 import { useTemplates } from '../../hooks/useTemplates';
-import { fileApi } from '../../services/api';
+import { fileApi, templatesApi } from '../../services/api';
 
 interface InvoiceFormProps {
   persona: string;
@@ -14,8 +14,10 @@ interface InvoiceFormProps {
 export function InvoiceForm({ persona, clientName, onBack }: InvoiceFormProps) {
   const [quantity, setQuantity] = useState(1);
   const [month, setMonth] = useState(() => {
+    // Default to previous month (invoices are typically for the previous month)
     const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    return `${prevMonth.getFullYear()}-${String(prevMonth.getMonth() + 1).padStart(2, '0')}`;
   });
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [generatePdf, setGeneratePdf] = useState(true);
@@ -31,6 +33,7 @@ export function InvoiceForm({ persona, clientName, onBack }: InvoiceFormProps) {
     currency: string;
   } | null>(null);
   const [isEmailing, setIsEmailing] = useState(false);
+  const [isOpeningTemplate, setIsOpeningTemplate] = useState(false);
 
   const { data: clientData, isLoading: clientLoading } = useClient(persona, clientName);
   const { data: previewData, isLoading: previewLoading, error: previewError } = useInvoicePreview(
@@ -100,6 +103,18 @@ export function InvoiceForm({ persona, clientName, onBack }: InvoiceFormProps) {
     }
   };
 
+  const handleOpenTemplate = async () => {
+    const templateToOpen = selectedTemplate || 'default';
+    setIsOpeningTemplate(true);
+    try {
+      await templatesApi.open(persona, templateToOpen);
+    } catch (err) {
+      console.error('Failed to open template:', err);
+    } finally {
+      setIsOpeningTemplate(false);
+    }
+  };
+
   if (clientLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -164,16 +179,31 @@ export function InvoiceForm({ persona, clientName, onBack }: InvoiceFormProps) {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Template
             </label>
-            <select
-              value={selectedTemplate}
-              onChange={(e) => setSelectedTemplate(e.target.value)}
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-            >
-              <option value="">Default</option>
-              {allTemplates.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
+            <div className="flex gap-2">
+              <select
+                value={selectedTemplate}
+                onChange={(e) => setSelectedTemplate(e.target.value)}
+                className="block flex-1 rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+              >
+                <option value="">Default</option>
+                {allTemplates.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={handleOpenTemplate}
+                disabled={isOpeningTemplate}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50"
+                title="Edit template in word processor"
+              >
+                {isOpeningTemplate ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Pencil className="w-4 h-4" />
+                )}
+              </button>
+            </div>
           </div>
 
           {/* PDF Generation */}

@@ -99,10 +99,15 @@ export function convertToPdf(docxPath: string): string {
 export async function generateDocuments(
   ctx: InvoiceContext,
   outputDir: string,
-  template: string = 'default'
+  options: GenerateOptions | string = 'default'
 ): Promise<GeneratedPDF> {
+  // Handle legacy call with just template name
+  const opts: GenerateOptions = typeof options === 'string'
+    ? { template: options }
+    : options;
+
   // Generate DOCX
-  const { docxPath, docxBuffer } = await generateDocx(ctx, outputDir, template);
+  const { docxPath, docxBuffer } = await generateDocx(ctx, outputDir, opts);
 
   // Convert to PDF
   const pdfPath = convertToPdf(docxPath);

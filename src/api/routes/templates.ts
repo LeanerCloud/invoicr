@@ -13,7 +13,8 @@ import {
   isBuiltInTemplate,
   copyTemplateForEditing,
   deleteCustomTemplate,
-  uploadCustomTemplate
+  uploadCustomTemplate,
+  renameCustomTemplate
 } from '../../lib/template-generator.js';
 
 export function getTemplates(ctx: ServerContext) {
@@ -159,15 +160,85 @@ export function openTemplate(ctx: ServerContext) {
     try {
       const templatePath = getTemplatePath(name, personaDir);
 
-      // Use macOS 'open' command to open in default app (Word/Pages)
-      execSync(`open "${templatePath}"`);
+      // Open in LibreOffice (required for PDF generation anyway)
+      execSync(`open -a LibreOffice "${templatePath}"`);
       res.json({
         success: true,
         path: templatePath,
-        message: `Template '${name}' opened in default application`,
+        message: `Template '${name}' opened in LibreOffice`,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to open template';
+      res.error(message, 400);
+    }
+  };
+}
+
+export function renameTemplate(ctx: ServerContext) {
+  return async (req: ApiRequest, res: ApiResponse): Promise<void> => {
+    const { persona, name } = req.params!;
+    const personaDir = path.join(ctx.basePath, persona);
+
+    if (!fs.existsSync(personaDir)) {
+      res.error(`Persona '${persona}' not found`, 404);
+      return;
+    }
+
+    const { newName } = req.body;
+
+    if (!newName) {
+      res.error('newName is required', 400);
+      return;
+    }
+
+    // Cannot rename built-in templates
+    if (isBuiltInTemplate(name)) {
+      res.error(`Cannot rename built-in template '${name}'`, 400);
+      return;
+    }
+
+    try {
+      const templatePath = renameCustomTemplate(name, newName, personaDir);
+      res.json({
+        success: true,
+        path: templatePath,
+        oldName: name,
+        newName: newName,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to rename template';
+      res.error(message, 400);
+    }
+  };
+}
+
+export function openTemplatesFolder(ctx: ServerContext) {
+  return async (req: ApiRequest, res: ApiResponse): Promise<void> => {
+    const { persona } = req.params!;
+    const personaDir = path.join(ctx.basePath, persona);
+
+    if (!fs.existsSync(personaDir)) {
+      res.error(`Persona '${persona}' not found`, 404);
+      return;
+    }
+
+    const templatesDir = path.join(personaDir, 'templates');
+
+    // Create templates directory if it doesn't exist
+    if (!fs.existsSync(templatesDir)) {
+      fs.mkdirSync(templatesDir, { recursive: true });
+    }
+
+    try {
+      // Use macOS 'open' command to open folder in Finder
+      execSync(`open "${templatesDir}"`);
+      res.json({
+        success: true,
+        path: templatesDir,
+        message: 'Templates folder opened in Finder',
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to open templates folder';
       res.error(message, 400);
     }
   };

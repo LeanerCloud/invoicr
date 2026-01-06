@@ -327,6 +327,37 @@ export function deleteCustomTemplate(
 }
 
 /**
+ * Rename a custom template
+ */
+export function renameCustomTemplate(
+  oldName: string,
+  newName: string,
+  personaDir: string
+): string {
+  if (isBuiltInTemplate(oldName)) {
+    throw new Error('Cannot rename built-in templates');
+  }
+
+  const safeName = newName.replace(/[^a-zA-Z0-9-_]/g, '_');
+  if (isBuiltInTemplate(safeName)) {
+    throw new Error(`Cannot use built-in template name: ${safeName}`);
+  }
+
+  const oldPath = path.join(personaDir, 'templates', `${oldName}.docx`);
+  if (!fs.existsSync(oldPath)) {
+    throw new Error(`Template not found: ${oldName}`);
+  }
+
+  const newPath = path.join(personaDir, 'templates', `${safeName}.docx`);
+  if (fs.existsSync(newPath)) {
+    throw new Error(`Template already exists: ${safeName}`);
+  }
+
+  fs.renameSync(oldPath, newPath);
+  return newPath;
+}
+
+/**
  * Upload a custom template
  */
 export function uploadCustomTemplate(
