@@ -17,11 +17,10 @@ import {
   getDefaultPaths,
   getClientInfo,
   loadProvider,
-  getPrimaryEmail
+  sendInvoiceEmails,
+  type ClientInfo,
+  type GeneratedInvoiceInfo
 } from '../lib/index.js';
-import { createBatchEmail, createEmail, type BatchInvoiceInfo } from '../email.js';
-import { buildInvoiceContext } from '../lib/invoice-builder.js';
-import { loadTranslations } from '../api/helpers/translations.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -250,85 +249,38 @@ if (useBatchEmail && generatedInvoices.length > 0) {
   const paths = getDefaultPaths();
   const provider = loadProvider(paths.provider);
 
-  // Group invoices by email recipient
-  const invoicesByEmail = new Map<string, GeneratedInvoice[]>();
+  // Resolve client info for every referenced client, and shape invoices for the
+  // shared emailer (grouping + batch vs. single dispatch).
+  const clientInfos = new Map<string, ClientInfo>();
+  const emailInvoices: GeneratedInvoiceInfo[] = [];
 
   for (const invoice of generatedInvoices) {
-    const clientInfo = getClientInfo(paths.clients, invoice.clientName);
-    if (!clientInfo) continue;
-
-    const email = getPrimaryEmail(clientInfo.client);
-    if (!email) continue;
-
-    const existing = invoicesByEmail.get(email) || [];
-    existing.push(invoice);
-    invoicesByEmail.set(email, existing);
-  }
-
-  // Send emails for each group
-  let emailSuccess = 0;
-  let emailError = 0;
-
-  for (const [email, invoices] of invoicesByEmail) {
-    if (invoices.length === 1) {
-      // Single invoice - use regular email
-      const invoice = invoices[0];
-      const clientInfo = getClientInfo(paths.clients, invoice.clientName);
-      if (!clientInfo) continue;
-
-      const translations = loadTranslations(clientInfo.client.language);
-      const context = buildInvoiceContext(provider, clientInfo.client, translations, {
-        quantity: 1,
-        billingMonth: new Date()
-      });
-
-      // Override with actual invoice data
-      context.invoiceNumber = invoice.invoiceNumber;
-      context.monthName = invoice.monthName;
-      context.totalAmount = invoice.totalAmount;
-
-      try {
-        createEmail(context, [invoice.pdfPath], isTestMode);
-        console.log(`✓ Email draft created for ${email} (1 invoice)`);
-        emailSuccess++;
-      } catch {
-        console.error(`✗ Failed to create email for ${email}`);
-        emailError++;
-      }
-    } else {
-      // Multiple invoices - use batch email
-      const batchInfos: BatchInvoiceInfo[] = [];
-
-      for (const invoice of invoices) {
-        const clientInfo = getClientInfo(paths.clients, invoice.clientName);
-        if (!clientInfo) continue;
-
-        batchInfos.push({
-          client: clientInfo.client,
-          invoiceNumber: invoice.invoiceNumber,
-          monthName: invoice.monthName,
-          totalAmount: invoice.totalAmount,
-          currency: invoice.currency,
-          pdfPath: invoice.pdfPath,
-          eInvoicePath: invoice.eInvoicePath
-        });
-      }
-
-      try {
-        const success = createBatchEmail(batchInfos, provider, isTestMode);
-        if (success) {
-          console.log(`✓ Batch email draft created for ${email} (${invoices.length} invoices)`);
-          emailSuccess++;
-        } else {
-          console.error(`✗ Failed to create batch email for ${email}`);
-          emailError++;
-        }
-      } catch {
-        console.error(`✗ Failed to create batch email for ${email}`);
-        emailError++;
-      }
+    let clientInfo = clientInfos.get(invoice.clientName);
+    if (!clientInfo) {
+      const info = getClientInfo(paths.clients, invoice.clientName);
+      if (!info) continue;
+      clientInfo = info;
+      clientInfos.set(invoice.clientName, info);
     }
+
+    emailInvoices.push({
+      clientName: invoice.clientName,
+      clientDisplayName: clientInfo.client.name,
+      invoiceNumber: invoice.invoiceNumber,
+      monthName: invoice.monthName,
+      totalAmount: invoice.totalAmount,
+      currency: invoice.currency,
+      pdfPath: invoice.pdfPath,
+      eInvoicePath: invoice.eInvoicePath
+    });
   }
+
+  const { emailSuccess, emailError } = sendInvoiceEmails(
+    emailInvoices,
+    provider,
+    [...clientInfos.values()],
+    { isTestMode }
+  );
 
   console.log(`\nEmail summary: ${emailSuccess} sent, ${emailError} failed`);
   if (isTestMode) {

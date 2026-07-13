@@ -65,8 +65,11 @@ export {
   hasHistory,
   deleteInvoice,
   clearHistory,
+  findInvoiceAttachments,
+  findHistoryEntryByPdf,
   type InvoiceHistoryEntry,
-  type InvoiceHistory
+  type InvoiceHistory,
+  type InvoiceAttachments
 } from './history-manager.js';
 
 // Bank Account Resolution
@@ -123,6 +126,24 @@ export {
   getClientsWithSharedEmails,
   type GeneratedInvoiceInfo
 } from './email-grouper.js';
+
+// Invoice emailing orchestration (shared by bulk + bulk-email + API)
+export {
+  sendInvoiceEmails,
+  type SendInvoiceEmailsOptions,
+  type SendInvoiceEmailsResult,
+  type EmailGroupResult
+} from './invoice-emailer.js';
+
+// Bulk-email CLI helpers
+export {
+  parseClientInvoiceSpec,
+  normalizeMonthName,
+  selectInvoice,
+  type ClientInvoiceSpec,
+  type InvoiceSelection,
+  type InvoiceSelectionErrorReason
+} from './bulk-email-utils.js';
 
 // E-invoice support
 export * from '../einvoice/index.js';
