@@ -32,6 +32,7 @@ export interface TemplateData {
     name: string;
     iban: string;
     bic: string;
+    correspondentBic?: string;
   };
   invoiceNumber: string;
   invoiceDate: string;
@@ -189,6 +190,7 @@ export function contextToTemplateData(ctx: InvoiceContext): TemplateData {
       name: ctx.bankDetails.name,
       iban: ctx.bankDetails.iban,
       bic: ctx.bankDetails.bic,
+      correspondentBic: ctx.bankDetails.correspondentBic,
     },
     invoiceNumber: ctx.invoiceNumber,
     invoiceDate: ctx.invoiceDate,
@@ -230,6 +232,7 @@ export function contextToTemplateData(ctx: InvoiceContext): TemplateData {
       bank: t.bank || 'Bank',
       iban: t.iban || 'IBAN',
       bic: t.bic || 'BIC',
+      correspondentBic: lang === 'de' ? 'Korrespondenzbank-BIC' : 'Correspondent Bank BIC',
       taxNumber: t.taxNumber || 'Tax Number',
       vatId: t.vatId || 'VAT ID',
       reference: lang === 'de' ? 'Verwendungszweck' : 'Reference',

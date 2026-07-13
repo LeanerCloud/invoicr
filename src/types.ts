@@ -152,6 +152,7 @@ export interface BankDetails {
   name: string;
   iban: string;
   bic: string;
+  correspondentBic?: string;  // Intermediary bank BIC, typically required for USD wires
 }
 
 export interface LabeledBankDetails extends BankDetails {
