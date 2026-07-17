@@ -41,7 +41,9 @@ export const addressSchema = z.object({
 export const bankSchema = z.object({
   name: z.string().min(1, 'Bank name is required'),
   iban: z.string().min(1, 'IBAN is required'),
-  bic: z.string().min(1, 'BIC is required')
+  bic: z.string().min(1, 'BIC is required'),
+  // Correspondent/intermediary bank BIC, typically required for USD wires
+  correspondentBic: z.string().min(1).optional()
 });
 
 export const labeledBankSchema = bankSchema.extend({
