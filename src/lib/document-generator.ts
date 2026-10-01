@@ -10,6 +10,7 @@ import {
   generateInvoiceFromTemplate,
   getBuiltInTemplates,
 } from './template-generator.js';
+import { sanitizeFilenamePart } from '../utils.js';
 
 export interface GeneratedDocument {
   docxPath: string;
@@ -49,7 +50,7 @@ export async function generateDocx(
   const buffer = await generateInvoiceFromTemplate(ctx, templateName, opts.personaDir);
 
   // Generate filename
-  const monthStr = ctx.monthName.replace(' ', '_');
+  const monthStr = ctx.filenameSuffix ? sanitizeFilenamePart(ctx.filenameSuffix) : sanitizeFilenamePart(ctx.monthName);
   const baseFilename = `${ctx.translations.filePrefix}_${ctx.invoiceNumber}_${monthStr}`;
   const docxPath = path.join(outputDir, `${baseFilename}.docx`);
 
@@ -150,7 +151,7 @@ export function generateOutputPaths(
   ctx: InvoiceContext,
   outputDir: string
 ): { docxPath: string; pdfPath: string } {
-  const monthStr = ctx.monthName.replace(' ', '_');
+  const monthStr = ctx.filenameSuffix ? sanitizeFilenamePart(ctx.filenameSuffix) : sanitizeFilenamePart(ctx.monthName);
   const baseFilename = `${ctx.translations.filePrefix}_${ctx.invoiceNumber}_${monthStr}`;
 
   return {

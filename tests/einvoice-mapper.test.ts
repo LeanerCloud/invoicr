@@ -143,6 +143,12 @@ describe('formatDateToISO', () => {
     expect(formatDateToISO('1 Nov 2024', 'en')).toBe('2024-11-01');
     expect(formatDateToISO('1 Dec 2024', 'en')).toBe('2024-12-01');
   });
+
+  it('should convert the long "Month D, YYYY" English format to ISO', () => {
+    expect(formatDateToISO('July 1, 2026', 'en')).toBe('2026-07-01');
+    expect(formatDateToISO('December 15, 2024', 'en')).toBe('2024-12-15');
+    expect(formatDateToISO('January 31, 2025', 'en')).toBe('2025-01-31');
+  });
 });
 
 describe('generateEInvoiceFilename', () => {
@@ -163,6 +169,14 @@ describe('generateEInvoiceFilename', () => {
     ctx.invoiceNumber = 'TC/001-2024';
     const filename = generateEInvoiceFilename(ctx, 'xrechnung', 'xml');
     expect(filename).toBe('Rechnung_TC_001-2024_November_2024_xrechnung.xml');
+  });
+
+  it('should use filenameSuffix instead of monthName when provided', () => {
+    const ctx = createValidContext();
+    ctx.monthName = 'June 16 - 30';
+    ctx.filenameSuffix = 'June_16-30_2026';
+    const filename = generateEInvoiceFilename(ctx, 'xrechnung', 'xml');
+    expect(filename).toBe('Rechnung_TC-001_June_16-30_2026_xrechnung.xml');
   });
 });
 

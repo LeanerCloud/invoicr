@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   calculateTotals,
   buildLineItems,
@@ -6,10 +6,12 @@ import {
   generateInvoiceNumber,
   getServicePeriod,
   buildInvoiceContext,
+  applyCurrencyConversion,
   getDefaultBillingMonth,
   parseMonthArg,
   incrementInvoiceNumber
 } from '../src/lib/invoice-builder.js';
+import { clearExchangeRateCache } from '../src/lib/exchange-rate.js';
 import type { Client, Provider, Translations, ResolvedLineItem } from '../src/types.js';
 
 describe('invoice-builder', () => {
@@ -277,6 +279,130 @@ describe('invoice-builder', () => {
       );
 
       expect(result.bankDetails.name).toBe('Client Bank');
+    });
+
+    it('should override servicePeriod and monthName when period is provided', () => {
+      const billingMonth = new Date(2026, 5, 15); // June 2026
+      const result = buildInvoiceContext(
+        validProvider,
+        validClient,
+        translations,
+        { quantity: 40, billingMonth, period: 'June 16 - 30' }
+      );
+
+      expect(result.servicePeriod).toBe('June 16 - 30');
+      expect(result.monthName).toBe('June 16 - 30');
+      expect(result.serviceDescription).toContain('June 16 - 30');
+    });
+
+    it('should use the calculated servicePeriod/monthName when period is not provided', () => {
+      const billingMonth = new Date(2026, 5, 15); // June 2026
+      const result = buildInvoiceContext(
+        validProvider,
+        validClient,
+        translations,
+        { quantity: 40, billingMonth }
+      );
+
+      expect(result.servicePeriod).toBe('June 2026');
+      expect(result.monthName).toBe('June 2026');
+    });
+
+    it('should leave filenameSuffix undefined when not provided', () => {
+      const result = buildInvoiceContext(validProvider, validClient, translations, { quantity: 40 });
+      expect(result.filenameSuffix).toBeUndefined();
+    });
+
+    it('should pass through filenameSuffix when provided', () => {
+      const result = buildInvoiceContext(
+        validProvider,
+        validClient,
+        translations,
+        { quantity: 40, period: 'June 16 - 30', filenameSuffix: 'June_16-30_2026' }
+      );
+
+      expect(result.servicePeriod).toBe('June 16 - 30');
+      expect(result.filenameSuffix).toBe('June_16-30_2026');
+    });
+  });
+
+  describe('applyCurrencyConversion', () => {
+    afterEach(() => {
+      clearExchangeRateCache();
+      vi.unstubAllGlobals();
+    });
+
+    it('returns the context unchanged when invoiceCurrency is not set', async () => {
+      const ctx = buildInvoiceContext(validProvider, validClient, translations, { quantity: 40 });
+      const result = await applyCurrencyConversion(ctx);
+      expect(result).toBe(ctx);
+      expect(result.conversionNote).toBeUndefined();
+    });
+
+    it('returns the context unchanged when invoiceCurrency matches currency', async () => {
+      const client: Client = {
+        ...validClient,
+        service: { ...validClient.service, invoiceCurrency: 'USD', includeConversion: true }
+      };
+      const ctx = buildInvoiceContext(validProvider, client, translations, { quantity: 40 });
+      const result = await applyCurrencyConversion(ctx);
+      expect(result).toBe(ctx);
+    });
+
+    it('converts totals and line items even when includeConversion is not set, without a disclosure note', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ date: '2024-03-15', rates: { EUR: 0.5 } })
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const client: Client = {
+        ...validClient,
+        service: { ...validClient.service, invoiceCurrency: 'EUR' }
+      };
+      const ctx = buildInvoiceContext(validProvider, client, translations, { quantity: 40 });
+      const result = await applyCurrencyConversion(ctx);
+
+      expect(result.currency).toBe('EUR');
+      expect(result.totalAmount).toBeCloseTo(2380); // 4760 USD * 0.5
+      expect(result.conversionNote).toBeUndefined();
+    });
+
+    it('converts totals and line items and adds a disclosure note when includeConversion is set', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ date: '2024-03-15', rates: { EUR: 0.5 } })
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const client: Client = {
+        ...validClient,
+        service: { ...validClient.service, invoiceCurrency: 'EUR', includeConversion: true }
+      };
+      const ctx = buildInvoiceContext(validProvider, client, translations, { quantity: 40 });
+      const result = await applyCurrencyConversion(ctx);
+
+      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('base=USD'));
+      expect(result.currency).toBe('EUR');
+      expect(result.rate).toBeCloseTo(50); // 100 USD * 0.5
+      expect(result.subtotal).toBeCloseTo(2000); // 4000 USD * 0.5
+      expect(result.totalAmount).toBeCloseTo(2380); // 4760 USD * 0.5
+      expect(result.lineItems[0].rate).toBeCloseTo(50);
+      expect(result.lineItems[0].total).toBeCloseTo(2000);
+      expect(result.conversionNote).toContain('4000.00 USD');
+      expect(result.conversionNote).toContain('2000.00 EUR');
+    });
+
+    it('propagates errors from the exchange rate service', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+      const client: Client = {
+        ...validClient,
+        service: { ...validClient.service, invoiceCurrency: 'EUR', includeConversion: true }
+      };
+      const ctx = buildInvoiceContext(validProvider, client, translations, { quantity: 40 });
+
+      await expect(applyCurrencyConversion(ctx)).rejects.toThrow(/503/);
     });
   });
 });

@@ -171,12 +171,15 @@ const ctx = buildInvoiceContext(provider, client, translations, {
   billingMonth
 });
 
-// Override with actual invoice data
+// Override with actual invoice data (the invoice may have been billed in a
+// different currency than the client's current config, e.g. after a currency
+// conversion was applied at generation time)
 ctx.invoiceNumber = invoice.invoiceNumber;
 ctx.monthName = invoice.month;
 ctx.totalAmount = invoice.totalAmount;
 ctx.quantity = invoice.quantity;
 ctx.rate = invoice.rate;
+ctx.currency = (invoice.currency as 'EUR' | 'USD') || ctx.currency;
 
 // Show summary
 console.log(`\nEmailing invoice ${invoice.invoiceNumber} (${invoice.month})`);

@@ -76,7 +76,7 @@ export function emailInvoice(ctx: ServerContext) {
 
     // Look up invoice in history to get accurate month data
     const historyPath = path.join(clientInfo.directory, 'history.json');
-    let historicalInvoice: { invoiceNumber: string; month: string; quantity: number; rate: number; totalAmount: number } | undefined;
+    let historicalInvoice: { invoiceNumber: string; month: string; quantity: number; rate: number; totalAmount: number; currency?: string } | undefined;
 
     if (fs.existsSync(historyPath)) {
       try {
@@ -112,13 +112,15 @@ export function emailInvoice(ctx: ServerContext) {
       billingMonth
     });
 
-    // Override with actual invoice data if available
+    // Override with actual invoice data if available (may have been billed in
+    // a different currency than the client's current config, e.g. after conversion)
     if (historicalInvoice) {
       context.invoiceNumber = historicalInvoice.invoiceNumber;
       context.monthName = historicalInvoice.month;
       context.totalAmount = historicalInvoice.totalAmount;
       context.quantity = historicalInvoice.quantity;
       context.rate = historicalInvoice.rate;
+      context.currency = (historicalInvoice.currency as 'EUR' | 'USD') || context.currency;
     } else {
       // Fallback to extracting invoice number from filename
       context.invoiceNumber = path.basename(pdfPath, '.pdf');

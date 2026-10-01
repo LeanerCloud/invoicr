@@ -189,10 +189,12 @@ export function generateEInvoiceDoc(ctx: ServerContext) {
       billingMonth
     });
 
-    // Override with historical values
+    // Override with historical values (may have been billed in a different
+    // currency than the client's current config, e.g. after conversion)
     context.invoiceNumber = invoice.invoiceNumber;
     context.invoiceDate = invoice.date;
     context.totalAmount = invoice.totalAmount;
+    context.currency = (invoice.currency as 'EUR' | 'USD') || context.currency;
 
     // Generate e-invoice
     const eInvoiceResult = await generateEInvoice(

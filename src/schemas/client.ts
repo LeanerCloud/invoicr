@@ -11,7 +11,13 @@ export const serviceSchema = z.object({
   billingType: z.enum(['hourly', 'daily', 'fixed']),
   rate: z.number().optional(),
   dailyRate: z.number().optional(),
-  currency: z.enum(['EUR', 'USD'])
+  currency: z.enum(['EUR', 'USD']),
+  // Currency conversion: bill in `currency` but display the invoice in `invoiceCurrency`,
+  // converted at the exchange rate for the invoice date. Conversion applies whenever
+  // invoiceCurrency differs from currency; includeConversion only controls whether the
+  // rate disclosure line is printed on the invoice.
+  invoiceCurrency: z.enum(['EUR', 'USD']).optional(),
+  includeConversion: z.boolean().optional()
 });
 
 export const emailConfigSchema = z.object({
@@ -71,6 +77,8 @@ export const clientSchema = z.object({
   bankLabel: z.string().optional(),
   paymentTermsDays: z.number().int().positive().nullable().optional(),
   email: emailConfigSchema.optional(),
+  // Arbitrary legal/terms text appended to every invoice for this client
+  legalText: z.string().optional(),
   // Future fields (1.3.0+)
   taxRate: z.number().min(0).max(1).optional(),
   lineItems: z.array(lineItemSchema).optional(),

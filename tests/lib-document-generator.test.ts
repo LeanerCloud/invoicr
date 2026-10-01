@@ -165,6 +165,25 @@ describe('document-generator', () => {
       expect(result.docxPath).toContain('December_2024');
     });
 
+    it('should sanitize a custom half-month period into a valid filename', () => {
+      const ctx = createValidContext();
+      ctx.monthName = 'June 16 - 30';
+      const result = generateOutputPaths(ctx, '/output');
+
+      expect(result.docxPath).toContain('June_16_-_30');
+      expect(result.docxPath).not.toMatch(/\s/);
+    });
+
+    it('should use filenameSuffix instead of monthName when provided', () => {
+      const ctx = createValidContext();
+      ctx.monthName = 'June 16 - 30';
+      ctx.filenameSuffix = 'June_16-30_2026';
+      const result = generateOutputPaths(ctx, '/output');
+
+      expect(result.docxPath).toContain('June_16-30_2026');
+      expect(result.docxPath).not.toContain('June_16_-_30');
+    });
+
     it('should use translation file prefix', () => {
       const ctx = createValidContext();
       ctx.translations.filePrefix = 'Invoice';
