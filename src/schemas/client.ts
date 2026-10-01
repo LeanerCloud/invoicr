@@ -69,6 +69,7 @@ export const clientSchema = z.object({
   address: addressSchema,
   language: z.enum(['de', 'en']),
   emailLanguage: z.enum(['de', 'en']).optional(),
+  dateFormat: z.enum(['short', 'long']).optional(),
   invoicePrefix: z.string().min(1, 'Invoice prefix is required'),
   nextInvoiceNumber: z.number().int().positive('Invoice number must be a positive integer'),
   projectReference: z.string().optional(),

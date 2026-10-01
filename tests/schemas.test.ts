@@ -150,6 +150,16 @@ describe('validateClient', () => {
     expect(result.emailLanguage).toBe('de');
   });
 
+  it('should accept optional dateFormat', () => {
+    expect(validateClient({ ...validClient, dateFormat: 'long' }).dateFormat).toBe('long');
+    expect(validateClient({ ...validClient, dateFormat: 'short' }).dateFormat).toBe('short');
+    expect(validateClient(validClient).dateFormat).toBeUndefined();
+  });
+
+  it('should reject an unknown dateFormat', () => {
+    expect(() => validateClient({ ...validClient, dateFormat: 'iso' })).toThrow();
+  });
+
   it('should accept optional projectReference', () => {
     const clientWithRef = { ...validClient, projectReference: 'Project Alpha' };
     const result = validateClient(clientWithRef);

@@ -211,6 +211,7 @@ export interface Client {
   address: Address;
   language: 'de' | 'en';
   emailLanguage?: 'de' | 'en';
+  dateFormat?: 'short' | 'long';
   invoicePrefix: string;
   nextInvoiceNumber: number;
   projectReference?: string;

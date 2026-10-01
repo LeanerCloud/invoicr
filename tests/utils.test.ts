@@ -16,10 +16,20 @@ describe('formatDate', () => {
     expect(result).toBe('15.11.2025');
   });
 
-  it('should format date in English style', () => {
+  it('should format English dates in short style by default', () => {
     const date = new Date(2025, 10, 15); // November 15, 2025
-    const result = formatDate(date, 'en');
-    expect(result).toBe('November 15, 2025');
+    expect(formatDate(date, 'en')).toBe('15 Nov 2025');
+    expect(formatDate(date, 'en', 'short')).toBe('15 Nov 2025');
+  });
+
+  it('should format English dates in long style when requested', () => {
+    const date = new Date(2025, 10, 15); // November 15, 2025
+    expect(formatDate(date, 'en', 'long')).toBe('November 15, 2025');
+  });
+
+  it('should ignore the style for German dates', () => {
+    const date = new Date(2025, 10, 15);
+    expect(formatDate(date, 'de', 'long')).toBe('15.11.2025');
   });
 });
 
@@ -130,6 +140,7 @@ describe('formatDueDate', () => {
   it('should format due date using formatDate', () => {
     const date = new Date(2025, 10, 15);
     expect(formatDueDate(date, 'de')).toBe('15.11.2025');
-    expect(formatDueDate(date, 'en')).toBe('November 15, 2025');
+    expect(formatDueDate(date, 'en')).toBe('15 Nov 2025');
+    expect(formatDueDate(date, 'en', 'long')).toBe('November 15, 2025');
   });
 });

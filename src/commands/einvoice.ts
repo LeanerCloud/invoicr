@@ -213,12 +213,12 @@ const taxAmount = subtotal * taxRate;
 
 // Parse dates
 const invoiceDateObj = new Date(lastInvoice.date);
-const invoiceDate = formatDate(invoiceDateObj, lang);
+const invoiceDate = formatDate(invoiceDateObj, lang, client.dateFormat);
 
 let dueDate: string | undefined;
 if (client.paymentTermsDays && client.paymentTermsDays > 0) {
   const dueDateObj = calculateDueDate(invoiceDateObj, client.paymentTermsDays);
-  dueDate = formatDate(dueDateObj, lang);
+  dueDate = formatDate(dueDateObj, lang, client.dateFormat);
 }
 
 // Build service description

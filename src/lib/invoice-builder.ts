@@ -122,7 +122,7 @@ export function buildInvoiceContext(
 
   // Calculate dates
   const invoiceDateObj = new Date();
-  const invoiceDate = formatDate(invoiceDateObj, lang);
+  const invoiceDate = formatDate(invoiceDateObj, lang, client.dateFormat);
   const computed = getServicePeriod(billingMonth, lang);
   const servicePeriod = period || computed.servicePeriod;
   const monthName = period || computed.monthName;
@@ -131,7 +131,7 @@ export function buildInvoiceContext(
   let dueDate: string | undefined;
   if (client.paymentTermsDays && client.paymentTermsDays > 0) {
     const dueDateObj = calculateDueDate(invoiceDateObj, client.paymentTermsDays);
-    dueDate = formatDate(dueDateObj, lang);
+    dueDate = formatDate(dueDateObj, lang, client.dateFormat);
   }
 
   // Build line items and calculate totals

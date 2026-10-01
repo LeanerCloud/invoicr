@@ -187,7 +187,7 @@ if (monthArg) {
 }
 
 const invoiceDateObj = new Date();
-const invoiceDate = formatDate(invoiceDateObj, lang);
+const invoiceDate = formatDate(invoiceDateObj, lang, client.dateFormat);
 const lastOfMonth = new Date(billingMonth.getFullYear(), billingMonth.getMonth() + 1, 0);
 let monthName = billingMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
@@ -195,7 +195,7 @@ let monthName = billingMonth.toLocaleDateString('en-US', { month: 'long', year: 
 let dueDate: string | undefined;
 if (client.paymentTermsDays && client.paymentTermsDays > 0) {
   const dueDateObj = calculateDueDate(invoiceDateObj, client.paymentTermsDays);
-  dueDate = formatDate(dueDateObj, lang);
+  dueDate = formatDate(dueDateObj, lang, client.dateFormat);
 }
 
 let servicePeriod: string;
