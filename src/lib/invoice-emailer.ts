@@ -53,6 +53,7 @@ function sendSingle(
   context.invoiceNumber = invoice.invoiceNumber;
   context.monthName = invoice.monthName;
   context.totalAmount = invoice.totalAmount;
+  context.currency = (invoice.currency as 'EUR' | 'USD') || context.currency;
 
   const attachments = [invoice.pdfPath];
   if (invoice.eInvoicePath) {

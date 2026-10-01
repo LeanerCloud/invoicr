@@ -83,6 +83,15 @@ describe('sendInvoiceEmails', () => {
     ]);
   });
 
+  it('uses the currency the invoice was billed in, not the current client config', () => {
+    const clients = [makeClientInfo('a', makeClient('Client A', 'a@example.com'))];
+    const invoice = { ...makeInvoice('a', 'A-1'), currency: 'EUR' };
+
+    sendInvoiceEmails([invoice], provider, clients);
+
+    expect(createEmail.mock.calls[0][0]).toMatchObject({ currency: 'EUR', invoiceNumber: 'A-1' });
+  });
+
   it('sends separate emails for clients with different recipients', () => {
     const clients = [
       makeClientInfo('a', makeClient('Client A', 'a@example.com')),
