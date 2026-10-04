@@ -42,6 +42,17 @@ describe('parseClientInvoiceSpec', () => {
 });
 
 describe('normalizeMonthName', () => {
+  it('accepts single-digit ISO months', () => {
+    expect(normalizeMonthName('2026-6')).toBe('June 2026');
+  });
+
+  it.each(['13-2026', '2026-13', '00-2026', 'june', '2026', '6/2026', ''])(
+    'rejects invalid month %j',
+    (arg) => {
+      expect(() => normalizeMonthName(arg)).toThrow(/Invalid month/);
+    }
+  );
+
   it('normalizes MM-YYYY to the history month name', () => {
     expect(normalizeMonthName('06-2026')).toBe('June 2026');
   });

@@ -42,7 +42,7 @@ function sendSingle(
   clientInfo: ClientInfo,
   provider: Provider,
   isTestMode: boolean
-): void {
+): boolean {
   const translations = loadTranslations(clientInfo.client.language);
   const context = buildInvoiceContext(provider, clientInfo.client, translations, {
     quantity: 1,
@@ -60,7 +60,7 @@ function sendSingle(
     attachments.push(invoice.eInvoicePath);
   }
 
-  createEmail(context, attachments, isTestMode);
+  return createEmail(context, attachments, isTestMode);
 }
 
 /**
@@ -97,13 +97,16 @@ export function sendInvoiceEmails(
       record({ email, invoiceNumbers: [invoice.invoiceNumber], mode: 'single', success: false });
       return;
     }
-    let success = true;
+    let success = false;
     try {
-      sendSingle(invoice, clientInfo, provider, isTestMode);
-      console.log(`✓ Email draft created for ${label} (1 invoice)`);
+      success = sendSingle(invoice, clientInfo, provider, isTestMode);
     } catch {
-      console.error(`✗ Failed to create email for ${label}`);
       success = false;
+    }
+    if (success) {
+      console.log(`✓ Email draft created for ${label} (1 invoice)`);
+    } else {
+      console.error(`✗ Failed to create email for ${label}`);
     }
     record({ email, invoiceNumbers: [invoice.invoiceNumber], mode: 'single', success });
   };
@@ -120,6 +123,13 @@ export function sendInvoiceEmails(
 
   // Batch mode: group by recipient; single-invoice groups still use a plain email.
   const grouped = groupInvoicesByEmail(invoices, clients);
+
+  const groupedInvoices = new Set([...grouped.values()].flat());
+  for (const invoice of invoices) {
+    if (groupedInvoices.has(invoice)) continue;
+    console.error(`✗ No email recipient for invoice ${invoice.invoiceNumber} (${invoice.clientName})`);
+    record({ email: invoice.clientName, invoiceNumbers: [invoice.invoiceNumber], mode: 'single', success: false });
+  }
 
   for (const [email, groupInvoices] of grouped) {
     if (groupInvoices.length === 1) {

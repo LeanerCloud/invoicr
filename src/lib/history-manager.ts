@@ -193,12 +193,9 @@ export function findInvoiceAttachments(
   invoiceNumber: string,
   preferredPdfPath?: string
 ): InvoiceAttachments {
-  const matchesInvoice = (file: string): boolean =>
-    file.includes(`_${invoiceNumber}_`) || file.includes(`_${invoiceNumber}.`);
-
   const findByExt = (ext: string): string | undefined => {
     if (!fs.existsSync(clientDir)) return undefined;
-    const match = fs.readdirSync(clientDir).find(f => f.endsWith(ext) && matchesInvoice(f));
+    const match = fs.readdirSync(clientDir).find(f => f.endsWith(ext) && filenameHasInvoiceNumber(f, invoiceNumber, ext));
     return match ? path.join(clientDir, match) : undefined;
   };
 
@@ -212,6 +209,15 @@ export function findInvoiceAttachments(
   const eInvoicePath = findByExt('.xml');
 
   return { pdfPath, eInvoicePath };
+}
+
+/**
+ * True when `file` embeds `invoiceNumber` bounded by underscores, or as the
+ * last segment before `ext`. Anchoring to the extension keeps "SM.-1" from
+ * matching a "SM.-1.-1" file, which a bare `_SM.-1.` substring would.
+ */
+function filenameHasInvoiceNumber(file: string, invoiceNumber: string, ext: string): boolean {
+  return file.includes(`_${invoiceNumber}_`) || file.endsWith(`_${invoiceNumber}${ext}`);
 }
 
 /**
@@ -229,10 +235,6 @@ export function findHistoryEntryByPdf(
 
   const fileName = path.basename(pdfPath);
   return (
-    invoices.find(
-      inv =>
-        fileName.includes(`_${inv.invoiceNumber}_`) ||
-        fileName.includes(`_${inv.invoiceNumber}.`)
-    ) || null
+    invoices.find(inv => filenameHasInvoiceNumber(fileName, inv.invoiceNumber, path.extname(fileName))) || null
   );
 }

@@ -49,6 +49,12 @@ describe('history-manager file lookups', () => {
       );
     });
 
+    it('does not match a number that is a dotted prefix of another (SM.-1 vs SM.-1.-1)', () => {
+      fs.writeFileSync(path.join(dir, 'Invoice_SM.-1.-1.pdf'), 'x');
+      expect(findInvoiceAttachments(dir, 'SM.-1').pdfPath).toBeNull();
+      expect(findInvoiceAttachments(dir, 'SM.-1.-1').pdfPath).toBe(path.join(dir, 'Invoice_SM.-1.-1.pdf'));
+    });
+
     it('locates a matching e-invoice XML alongside the PDF', () => {
       fs.writeFileSync(path.join(dir, 'Invoice_SM-15_June_2026.pdf'), 'x');
       fs.writeFileSync(path.join(dir, 'Invoice_SM-15_June_2026.xml'), '<x/>');

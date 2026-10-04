@@ -32,7 +32,12 @@ export function parseClientInvoiceSpec(arg: string): ClientInvoiceSpec {
  * en-US long month/year regardless of client language.
  */
 export function normalizeMonthName(monthArg: string): string {
-  return getServicePeriod(parseMonthArg(monthArg), 'en').monthName;
+  const match = /^(?:(\d{4})-(\d{1,2})|(\d{1,2})-(\d{4}))$/.exec(monthArg.trim());
+  const month = match ? Number(match[2] ?? match[3]) : NaN;
+  if (!(month >= 1 && month <= 12)) {
+    throw new Error(`Invalid month "${monthArg}": expected MM-YYYY or YYYY-MM`);
+  }
+  return getServicePeriod(parseMonthArg(monthArg.trim()), 'en').monthName;
 }
 
 export type InvoiceSelectionErrorReason =

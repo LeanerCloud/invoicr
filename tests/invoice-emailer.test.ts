@@ -57,7 +57,8 @@ function makeInvoice(folder: string, invoiceNumber: string): GeneratedInvoiceInf
 }
 
 beforeEach(() => {
-  createEmail.mockClear();
+  createEmail.mockReset();
+  createEmail.mockReturnValue(true);
   createBatchEmail.mockClear();
   createBatchEmail.mockReturnValue(true);
 });
@@ -90,6 +91,29 @@ describe('sendInvoiceEmails', () => {
     sendInvoiceEmails([invoice], provider, clients);
 
     expect(createEmail.mock.calls[0][0]).toMatchObject({ currency: 'EUR', invoiceNumber: 'A-1' });
+  });
+
+  it('records a failure when a single email draft cannot be created', () => {
+    createEmail.mockReturnValue(false);
+    const clients = [makeClientInfo('a', makeClient('Client A', 'a@example.com'))];
+
+    const result = sendInvoiceEmails([makeInvoice('a', 'A-1')], provider, clients);
+
+    expect(result).toMatchObject({ emailSuccess: 0, emailError: 1 });
+    expect(result.groups[0]).toMatchObject({ mode: 'single', success: false });
+  });
+
+  it('reports invoices skipped because the client has no email recipient', () => {
+    const noEmail = { ...makeClient('Client B', 'b@example.com'), email: undefined };
+    const clients = [
+      makeClientInfo('a', makeClient('Client A', 'a@example.com')),
+      makeClientInfo('b', noEmail),
+    ];
+
+    const result = sendInvoiceEmails([makeInvoice('a', 'A-1'), makeInvoice('b', 'B-1')], provider, clients);
+
+    expect(result).toMatchObject({ emailSuccess: 1, emailError: 1 });
+    expect(result.groups.find(g => g.invoiceNumbers.includes('B-1'))).toMatchObject({ success: false });
   });
 
   it('sends separate emails for clients with different recipients', () => {

@@ -30,13 +30,35 @@ if (args.includes('--help') || args.includes('-h') || args.length === 0) {
   process.exit(args.length === 0 ? 1 : 0);
 }
 
+const BOOLEAN_FLAGS = new Set(['--test', '--no-batch-email', '--dry-run', '--help']);
+
+for (const arg of args.filter(a => a.startsWith('--'))) {
+  const [name, value] = arg.split(/=(.*)/s);
+  const isMonthWithValue = name === '--month' && value;
+  if (!BOOLEAN_FLAGS.has(arg) && !isMonthWithValue) {
+    console.error(
+      name === '--month'
+        ? 'Error: --month requires a value, e.g. --month=06-2026'
+        : `Error: unknown option ${arg}`
+    );
+    printHelp();
+    process.exit(1);
+  }
+}
+
 const isTestMode = args.includes('--test');
 const noBatch = args.includes('--no-batch-email');
 const isDryRun = args.includes('--dry-run');
 
 const monthFlag = args.find(a => a.startsWith('--month='));
 const monthArg = monthFlag ? monthFlag.split('=')[1] : undefined;
-const monthName = monthArg ? normalizeMonthName(monthArg) : undefined;
+let monthName: string | undefined;
+try {
+  monthName = monthArg ? normalizeMonthName(monthArg) : undefined;
+} catch (err) {
+  console.error(`Error: ${err instanceof Error ? err.message : err}`);
+  process.exit(1);
+}
 
 const specs = args.filter(a => !a.startsWith('--')).map(parseClientInvoiceSpec);
 
