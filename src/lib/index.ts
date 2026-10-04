@@ -32,11 +32,19 @@ export {
   generateInvoiceNumber,
   getServicePeriod,
   buildInvoiceContext,
+  applyCurrencyConversion,
   getDefaultBillingMonth,
   parseMonthArg,
   incrementInvoiceNumber,
   type BuildInvoiceOptions
 } from './invoice-builder.js';
+
+// Currency Conversion
+export {
+  getExchangeRate,
+  formatConversionNote,
+  type ExchangeRate
+} from './exchange-rate.js';
 
 // Document Generation
 export {

@@ -150,6 +150,16 @@ describe('validateClient', () => {
     expect(result.emailLanguage).toBe('de');
   });
 
+  it('should accept optional dateFormat', () => {
+    expect(validateClient({ ...validClient, dateFormat: 'long' }).dateFormat).toBe('long');
+    expect(validateClient({ ...validClient, dateFormat: 'short' }).dateFormat).toBe('short');
+    expect(validateClient(validClient).dateFormat).toBeUndefined();
+  });
+
+  it('should reject an unknown dateFormat', () => {
+    expect(() => validateClient({ ...validClient, dateFormat: 'iso' })).toThrow();
+  });
+
   it('should accept optional projectReference', () => {
     const clientWithRef = { ...validClient, projectReference: 'Project Alpha' };
     const result = validateClient(clientWithRef);
@@ -209,6 +219,30 @@ describe('validateClient', () => {
     const clientWithTemplate = { ...validClient, templateName: 'my-custom-template' };
     const result = validateClient(clientWithTemplate);
     expect(result.templateName).toBe('my-custom-template');
+  });
+
+  it('should accept optional legalText', () => {
+    const clientWithLegalText = { ...validClient, legalText: 'Late payments incur a 5% fee per month overdue.' };
+    const result = validateClient(clientWithLegalText);
+    expect(result.legalText).toBe('Late payments incur a 5% fee per month overdue.');
+  });
+
+  it('should accept optional invoiceCurrency and includeConversion on service', () => {
+    const clientWithConversion = {
+      ...validClient,
+      service: { ...validClient.service, currency: 'USD', invoiceCurrency: 'EUR', includeConversion: true }
+    };
+    const result = validateClient(clientWithConversion);
+    expect(result.service.invoiceCurrency).toBe('EUR');
+    expect(result.service.includeConversion).toBe(true);
+  });
+
+  it('should throw on invalid invoiceCurrency', () => {
+    const invalid = {
+      ...validClient,
+      service: { ...validClient.service, invoiceCurrency: 'GBP' }
+    };
+    expect(() => validateClient(invalid)).toThrow('Invalid client config');
   });
 
   it('should throw on invalid language', () => {

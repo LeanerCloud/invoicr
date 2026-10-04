@@ -54,7 +54,7 @@
     "bank": "Bank:",
     "iban": "IBAN:",
     "bic": "BIC/Swift:",
-    "taxNumber": "German Tax Number:",
+    "taxNumber": "Tax Number:",
     "vatId": "VAT ID:",
     "country": "Germany",
     "filePrefix": "Invoice",

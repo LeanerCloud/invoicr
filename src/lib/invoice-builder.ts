@@ -5,11 +5,16 @@
 import { Provider, Client, Translations, InvoiceContext, ResolvedLineItem } from '../types.js';
 import { formatDate, getServiceDescription, calculateDueDate } from '../utils.js';
 import { resolveBankDetails } from './bank-utils.js';
+import { getExchangeRate, formatConversionNote } from './exchange-rate.js';
 
 export interface BuildInvoiceOptions {
   quantity: number;
   billingMonth?: Date;
   lang?: 'de' | 'en';
+  /** Override the displayed service period (e.g. "June 16 - 30") for half-month/custom billing periods */
+  period?: string;
+  /** Override the month/period fragment used in output filenames (defaults to a sanitized monthName/period) */
+  filenameSuffix?: string;
 }
 
 /**
@@ -113,18 +118,20 @@ export function buildInvoiceContext(
   translations: Translations,
   options: BuildInvoiceOptions
 ): InvoiceContext {
-  const { quantity, billingMonth = getDefaultBillingMonth(), lang = client.language || 'de' } = options;
+  const { quantity, billingMonth = getDefaultBillingMonth(), lang = client.language || 'de', period, filenameSuffix } = options;
 
   // Calculate dates
   const invoiceDateObj = new Date();
-  const invoiceDate = formatDate(invoiceDateObj, lang);
-  const { servicePeriod, monthName } = getServicePeriod(billingMonth, lang);
+  const invoiceDate = formatDate(invoiceDateObj, lang, client.dateFormat);
+  const computed = getServicePeriod(billingMonth, lang);
+  const servicePeriod = period || computed.servicePeriod;
+  const monthName = period || computed.monthName;
 
   // Calculate due date if payment terms are set
   let dueDate: string | undefined;
   if (client.paymentTermsDays && client.paymentTermsDays > 0) {
     const dueDateObj = calculateDueDate(invoiceDateObj, client.paymentTermsDays);
-    dueDate = formatDate(dueDateObj, lang);
+    dueDate = formatDate(dueDateObj, lang, client.dateFormat);
   }
 
   // Build line items and calculate totals
@@ -155,6 +162,7 @@ export function buildInvoiceContext(
     dueDate,
     servicePeriod,
     monthName,
+    filenameSuffix,
     totalAmount,
     quantity,
     rate,
@@ -168,6 +176,47 @@ export function buildInvoiceContext(
     subtotal,
     taxAmount,
     taxRate
+  };
+}
+
+/**
+ * Convert an invoice context from its billing currency into
+ * `service.invoiceCurrency`, using today's exchange rate, whenever
+ * `invoiceCurrency` differs from `currency`. No-op otherwise.
+ * `service.includeConversion` only controls whether the disclosure line
+ * explaining the rate used is added to the invoice.
+ */
+export async function applyCurrencyConversion(ctx: InvoiceContext): Promise<InvoiceContext> {
+  const { service } = ctx.client;
+  const targetCurrency = service.invoiceCurrency;
+
+  if (!targetCurrency || targetCurrency === ctx.currency) {
+    return ctx;
+  }
+
+  const { rate, date } = await getExchangeRate(ctx.currency, targetCurrency);
+
+  // Round each converted line so the displayed lines sum to the subtotal
+  const lineItems = ctx.lineItems.map(item => ({
+    ...item,
+    rate: item.rate * rate,
+    total: Math.round(item.total * rate * 100) / 100
+  }));
+  const totals = calculateTotals(lineItems, ctx.taxRate);
+
+  const conversionNote = service.includeConversion
+    ? formatConversionNote(ctx.subtotal, ctx.currency, targetCurrency, rate, date, ctx.lang)
+    : undefined;
+
+  return {
+    ...ctx,
+    lineItems,
+    rate: ctx.rate * rate,
+    subtotal: totals.subtotal,
+    taxAmount: totals.taxAmount,
+    totalAmount: totals.totalAmount,
+    currency: targetCurrency,
+    conversionNote
   };
 }
 

@@ -1,6 +1,15 @@
-export function formatDate(date: Date, lang: string): string {
+export type DateFormat = 'short' | 'long';
+
+/**
+ * English dates: 'short' renders "1 Oct 2026" (default), 'long' renders
+ * "October 1, 2026". German dates are always dd.mm.yyyy.
+ */
+export function formatDate(date: Date, lang: string, style: DateFormat = 'short'): string {
   if (lang === 'de') {
     return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  }
+  if (style === 'long') {
+    return date.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
   }
   return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
@@ -49,7 +58,16 @@ export function calculateDueDate(baseDate: Date, days: number): Date {
 /**
  * Format a due date based on language
  */
-export function formatDueDate(date: Date, lang: string): string {
-  return formatDate(date, lang);
+export function formatDueDate(date: Date, lang: string, style: DateFormat = 'short'): string {
+  return formatDate(date, lang, style);
+}
+
+/**
+ * Sanitize free text (e.g. a month name or custom billing period) for use as
+ * part of a filename: strip filesystem-unsafe characters and collapse all
+ * whitespace to underscores.
+ */
+export function sanitizeFilenamePart(text: string): string {
+  return text.replace(/[/\\:*?"<>|]/g, '').replace(/\s+/g, '_');
 }
 

@@ -1,4 +1,5 @@
 import type { InvoiceContext, EInvoiceFormat, CountryCode, ResolvedLineItem } from '../types.js';
+import { sanitizeFilenamePart } from '../utils.js';
 
 /**
  * E-Invoice data structure based on EN16931 Business Terms
@@ -104,17 +105,31 @@ export function formatDateToISO(dateStr: string, lang: 'de' | 'en'): string {
     }
   }
 
-  // Handle English format: D MMM YYYY (e.g., "15 Dec 2024")
+  // Handle English formats: "D MMM YYYY" (e.g., "15 Dec 2024") or
+  // "MMMM D, YYYY" (e.g., "July 1, 2026") -- locate the month by name
+  // rather than assuming a fixed token order, so either format parses.
   if (lang === 'en') {
     const months: Record<string, string> = {
-      'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04',
-      'May': '05', 'Jun': '06', 'Jul': '07', 'Aug': '08',
-      'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'
+      'Jan': '01', 'January': '01',
+      'Feb': '02', 'February': '02',
+      'Mar': '03', 'March': '03',
+      'Apr': '04', 'April': '04',
+      'May': '05',
+      'Jun': '06', 'June': '06',
+      'Jul': '07', 'July': '07',
+      'Aug': '08', 'August': '08',
+      'Sep': '09', 'September': '09',
+      'Oct': '10', 'October': '10',
+      'Nov': '11', 'November': '11',
+      'Dec': '12', 'December': '12'
     };
-    const parts = dateStr.split(' ');
-    if (parts.length === 3) {
-      const [day, monthStr, year] = parts;
-      const month = months[monthStr] || '01';
+    const tokens = dateStr.replace(',', '').split(' ').filter(Boolean);
+    const monthToken = tokens.find(t => months[t]);
+    if (tokens.length === 3 && monthToken) {
+      const month = months[monthToken];
+      const others = tokens.filter(t => t !== monthToken);
+      const year = others.find(t => /^\d{4}$/.test(t)) || others[1];
+      const day = others.find(t => t !== year) || others[0];
       return `${year}-${month}-${day.padStart(2, '0')}`;
     }
   }
@@ -234,6 +249,6 @@ export function generateEInvoiceFilename(
   fileExtension: string
 ): string {
   const sanitizedInvoiceNumber = ctx.invoiceNumber.replace(/[^a-zA-Z0-9-]/g, '_');
-  const sanitizedMonth = ctx.monthName.replace(/\s+/g, '_');
+  const sanitizedMonth = sanitizeFilenamePart(ctx.filenameSuffix || ctx.monthName);
   return `${ctx.translations.filePrefix}_${sanitizedInvoiceNumber}_${sanitizedMonth}_${format}.${fileExtension}`;
 }

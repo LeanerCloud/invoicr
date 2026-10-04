@@ -56,6 +56,10 @@ export interface TemplateData {
   quantityHeader: string;
   /** Whether to show tax-related rows (false when taxRate is 0) */
   showTax: boolean;
+  /** Arbitrary legal/terms text for this client (empty when unset) */
+  legalText: string;
+  /** Currency conversion disclosure (empty when no conversion applied) */
+  conversionNote: string;
   translations: Record<string, string>;
 }
 
@@ -198,7 +202,7 @@ export function contextToTemplateData(ctx: InvoiceContext): TemplateData {
     servicePeriod: ctx.servicePeriod,
     projectRef: ctx.client.projectReference || '',
     lineItems: ctx.lineItems.map(item => ({
-      description: `${item.description}, ${ctx.monthName}`,
+      description: item.description,
       quantity: item.quantity.toString(),
       rate: formatCurrency(item.rate, currency, lang),
       total: formatCurrency(item.total, currency, lang),
@@ -212,6 +216,8 @@ export function contextToTemplateData(ctx: InvoiceContext): TemplateData {
     paymentTerms,
     quantityHeader,
     showTax: ctx.taxRate > 0,
+    legalText: ctx.client.legalText || '',
+    conversionNote: ctx.conversionNote || '',
     translations: {
       invoice: t.invoice || 'Invoice',
       invoiceNr: t.invoiceNr || 'Invoice No.',

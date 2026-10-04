@@ -9,6 +9,7 @@ import {
   loadProvider,
   getClientInfo,
   buildInvoiceContext,
+  applyCurrencyConversion,
   generateDocx,
   generateDocuments,
   isLibreOfficeAvailable,
@@ -55,7 +56,9 @@ export function previewInvoice(ctx: ServerContext) {
       billingMonth
     };
 
-    const context = buildInvoiceContext(provider, clientInfo.client, translations, options);
+    const context = await applyCurrencyConversion(
+      buildInvoiceContext(provider, clientInfo.client, translations, options)
+    );
 
     // Only show e-invoice formats when provider and client countries match
     const eInvoiceFormats = getFormatsForTransaction(
@@ -119,7 +122,9 @@ export function generateInvoice(ctx: ServerContext) {
       billingMonth
     };
 
-    const context = buildInvoiceContext(provider, clientInfo.client, translations, options);
+    const context = await applyCurrencyConversion(
+      buildInvoiceContext(provider, clientInfo.client, translations, options)
+    );
 
     // Generate documents
     let result: {

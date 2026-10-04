@@ -170,6 +170,12 @@ export interface Service {
   rate?: number;
   dailyRate?: number;
   currency: 'EUR' | 'USD';
+  // Currency conversion: bill in `currency` but display the invoice in `invoiceCurrency`,
+  // converted at the exchange rate for the invoice date. Conversion applies whenever
+  // invoiceCurrency differs from currency; includeConversion only controls whether the
+  // rate disclosure line is printed on the invoice.
+  invoiceCurrency?: 'EUR' | 'USD';
+  includeConversion?: boolean;
 }
 
 export interface Provider {
@@ -205,6 +211,7 @@ export interface Client {
   address: Address;
   language: 'de' | 'en';
   emailLanguage?: 'de' | 'en';
+  dateFormat?: 'short' | 'long';
   invoicePrefix: string;
   nextInvoiceNumber: number;
   projectReference?: string;
@@ -213,6 +220,8 @@ export interface Client {
   bankLabel?: string;
   paymentTermsDays?: number | null;
   email?: EmailConfig;
+  // Arbitrary legal/terms text appended to every invoice for this client
+  legalText?: string;
   // Future fields (1.3.0+)
   lineItems?: LineItem[];
   taxRate?: number;  // 0-1, e.g., 0.19 for 19%
@@ -279,6 +288,9 @@ export interface InvoiceContext {
   dueDate?: string;  // Calculated due date (if paymentTermsDays set)
   servicePeriod: string;
   monthName: string;
+  // Override for the month/period fragment used in output filenames, independent
+  // of servicePeriod/monthName's display formatting (e.g. for custom periods)
+  filenameSuffix?: string;
   totalAmount: number;
   quantity: number;
   rate: number;
@@ -293,4 +305,7 @@ export interface InvoiceContext {
   subtotal: number;
   taxAmount: number;
   taxRate: number;
+  // Currency conversion disclosure, set when a conversion was applied and
+  // service.includeConversion requested the disclosure line
+  conversionNote?: string;
 }
