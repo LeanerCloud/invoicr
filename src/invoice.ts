@@ -375,7 +375,7 @@ async function runInvoice() {
   }
 
   // Generate DOCX and PDF
-  generateInvoiceFromTemplate(ctx, effectiveTemplateName, cwd).then(buffer => {
+  await generateInvoiceFromTemplate(ctx, effectiveTemplateName, cwd).then(buffer => {
     fs.writeFileSync(docxPath, buffer);
     console.log(`DOCX created: ${docxPath}`);
 
