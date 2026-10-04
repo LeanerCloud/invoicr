@@ -10,6 +10,8 @@ export interface ExchangeRate {
   date: string;
 }
 
+const FETCH_TIMEOUT_MS = 10_000;
+
 const cache = new Map<string, ExchangeRate>();
 
 /**
@@ -22,7 +24,8 @@ export async function getExchangeRate(from: string, to: string): Promise<Exchang
     return { rate: 1, date: new Date().toISOString().split('T')[0] };
   }
 
-  const cacheKey = `${from}_${to}`;
+  const today = new Date().toISOString().split('T')[0];
+  const cacheKey = `${from}_${to}_${today}`;
   const cached = cache.get(cacheKey);
   if (cached) {
     return cached;
@@ -31,7 +34,7 @@ export async function getExchangeRate(from: string, to: string): Promise<Exchang
   const url = `https://api.frankfurter.dev/v1/latest?base=${from}&symbols=${to}`;
   let response: Response;
   try {
-    response = await fetch(url);
+    response = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
   } catch (err) {
     throw new Error(
       `Failed to reach exchange rate service for ${from}->${to}: ${err instanceof Error ? err.message : 'network error'}`

@@ -368,6 +368,27 @@ describe('invoice-builder', () => {
       expect(result.conversionNote).toBeUndefined();
     });
 
+    it('rounds converted line totals so the lines sum to the subtotal', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ date: '2024-03-15', rates: { EUR: 1.6 } })
+      }));
+      const client: Client = {
+        ...validClient,
+        taxRate: 0,
+        service: { ...validClient.service, invoiceCurrency: 'EUR' }
+      };
+      const base = buildInvoiceContext(validProvider, client, translations, { quantity: 1 });
+      const line = { description: 'Item', quantity: 1, rate: 0.01, billingType: 'fixed' as const, total: 0.01 };
+      const ctx = { ...base, lineItems: [line, line], subtotal: 0.02, taxAmount: 0, totalAmount: 0.02 };
+
+      const result = await applyCurrencyConversion(ctx);
+
+      expect(result.lineItems.map(l => l.total)).toEqual([0.02, 0.02]);
+      expect(result.subtotal).toBeCloseTo(0.04);
+      expect(result.totalAmount).toBeCloseTo(0.04);
+    });
+
     it('converts totals and line items and adds a disclosure note when includeConversion is set', async () => {
       const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
@@ -382,7 +403,7 @@ describe('invoice-builder', () => {
       const ctx = buildInvoiceContext(validProvider, client, translations, { quantity: 40 });
       const result = await applyCurrencyConversion(ctx);
 
-      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('base=USD'));
+      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('base=USD'), expect.anything());
       expect(result.currency).toBe('EUR');
       expect(result.rate).toBeCloseTo(50); // 100 USD * 0.5
       expect(result.subtotal).toBeCloseTo(2000); // 4000 USD * 0.5

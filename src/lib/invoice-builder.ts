@@ -196,11 +196,13 @@ export async function applyCurrencyConversion(ctx: InvoiceContext): Promise<Invo
 
   const { rate, date } = await getExchangeRate(ctx.currency, targetCurrency);
 
+  // Round each converted line so the displayed lines sum to the subtotal
   const lineItems = ctx.lineItems.map(item => ({
     ...item,
     rate: item.rate * rate,
-    total: item.total * rate
+    total: Math.round(item.total * rate * 100) / 100
   }));
+  const totals = calculateTotals(lineItems, ctx.taxRate);
 
   const conversionNote = service.includeConversion
     ? formatConversionNote(ctx.subtotal, ctx.currency, targetCurrency, rate, date, ctx.lang)
@@ -210,9 +212,9 @@ export async function applyCurrencyConversion(ctx: InvoiceContext): Promise<Invo
     ...ctx,
     lineItems,
     rate: ctx.rate * rate,
-    subtotal: ctx.subtotal * rate,
-    taxAmount: ctx.taxAmount * rate,
-    totalAmount: ctx.totalAmount * rate,
+    subtotal: totals.subtotal,
+    taxAmount: totals.taxAmount,
+    totalAmount: totals.totalAmount,
     currency: targetCurrency,
     conversionNote
   };

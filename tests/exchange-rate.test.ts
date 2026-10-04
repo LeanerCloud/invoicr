@@ -46,6 +46,38 @@ describe('exchange-rate', () => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
+    it('fetches again on a later day instead of reusing a stale cached rate', async () => {
+      vi.useFakeTimers();
+      try {
+        const fetchMock = vi.fn().mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve({ date: '2024-03-15', rates: { EUR: 0.92 } })
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        vi.setSystemTime(new Date('2024-03-15T10:00:00Z'));
+        await getExchangeRate('USD', 'EUR');
+        vi.setSystemTime(new Date('2024-03-16T10:00:00Z'));
+        await getExchangeRate('USD', 'EUR');
+
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('passes an abort signal so a stalled rate service cannot hang generation', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ date: '2024-03-15', rates: { EUR: 0.92 } })
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      await getExchangeRate('USD', 'EUR');
+
+      expect(fetchMock.mock.calls[0][1]).toMatchObject({ signal: expect.any(AbortSignal) });
+    });
+
     it('throws when the network request fails', async () => {
       vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
 
