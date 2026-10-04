@@ -11,9 +11,12 @@ import {
   getClientInfo,
   buildInvoiceContext,
   getDefaultBillingMonth,
-  getPrimaryEmail
+  findHistoryEntryByPdf,
+  sendInvoiceEmails,
+  type ClientInfo,
+  type GeneratedInvoiceInfo
 } from '../../lib/index.js';
-import { createEmail, createBatchEmail, type BatchInvoiceInfo } from '../../email.js';
+import { createEmail } from '../../email.js';
 import { loadTranslations } from '../helpers/translations.js';
 
 export function openFile() {
@@ -145,9 +148,10 @@ export function batchEmailInvoices(ctx: ServerContext) {
       return;
     }
 
-    // Validate and load all invoice data
+    // Validate input and resolve each invoice's data from history.
     const provider = loadProvider(paths.provider);
-    const batchInfoByEmail = new Map<string, BatchInvoiceInfo[]>();
+    const clientInfos = new Map<string, ClientInfo>();
+    const emailInvoices: GeneratedInvoiceInfo[] = [];
 
     for (const invoice of invoices) {
       const { clientName, pdfPath, eInvoicePath } = invoice;
@@ -168,76 +172,41 @@ export function batchEmailInvoices(ctx: ServerContext) {
         return;
       }
 
-      // Get primary email for grouping
-      const primaryEmail = getPrimaryEmail(clientInfo.client);
-      if (!primaryEmail) {
+      if (!clientInfo.client.email?.to?.length) {
         res.error(`Client '${clientName}' has no email configured`, 400);
         return;
       }
 
-      // Look up invoice in history to get accurate data
-      const historyPath = path.join(clientInfo.directory, 'history.json');
-      let invoiceData = {
-        invoiceNumber: path.basename(pdfPath, '.pdf'),
-        month: '',
-        totalAmount: 0,
-        currency: clientInfo.client.service.currency
-      };
+      clientInfos.set(clientName, clientInfo);
 
-      if (fs.existsSync(historyPath)) {
-        try {
-          const history = JSON.parse(fs.readFileSync(historyPath, 'utf8'));
-          const historicalInvoice = history.invoices?.find((inv: { pdfPath?: string; invoiceNumber: string }) =>
-            inv.pdfPath === pdfPath || pdfPath.includes(inv.invoiceNumber)
-          );
-          if (historicalInvoice) {
-            invoiceData = {
-              invoiceNumber: historicalInvoice.invoiceNumber,
-              month: historicalInvoice.month,
-              totalAmount: historicalInvoice.totalAmount,
-              currency: historicalInvoice.currency || clientInfo.client.service.currency
-            };
-          }
-        } catch {
-          // History parsing failed, use defaults
-        }
-      }
-
-      const batchInfo: BatchInvoiceInfo = {
-        client: clientInfo.client,
-        invoiceNumber: invoiceData.invoiceNumber,
-        monthName: invoiceData.month || 'Unknown',
-        totalAmount: invoiceData.totalAmount,
-        currency: invoiceData.currency,
+      // Resolve accurate invoice data from history (falls back to the filename).
+      const entry = findHistoryEntryByPdf(clientInfo.directory, pdfPath);
+      emailInvoices.push({
+        clientName,
+        clientDisplayName: clientInfo.client.name,
+        invoiceNumber: entry?.invoiceNumber || path.basename(pdfPath, '.pdf'),
+        monthName: entry?.month || 'Unknown',
+        totalAmount: entry?.totalAmount ?? 0,
+        currency: entry?.currency || clientInfo.client.service.currency,
         pdfPath,
         eInvoicePath: eInvoicePath && fs.existsSync(eInvoicePath) ? eInvoicePath : undefined
-      };
-
-      // Group by email
-      const existing = batchInfoByEmail.get(primaryEmail) || [];
-      existing.push(batchInfo);
-      batchInfoByEmail.set(primaryEmail, existing);
+      });
     }
 
-    // Send batch emails (one per unique email address)
-    const results: { email: string; count: number; success: boolean }[] = [];
+    // Group by recipient and send (shared with the CLI).
+    const { groups } = sendInvoiceEmails(emailInvoices, provider, [...clientInfos.values()], {
+      isTestMode: testMode
+    });
 
-    for (const [email, batchInvoices] of batchInfoByEmail) {
-      try {
-        const success = createBatchEmail(batchInvoices, provider, testMode);
-        results.push({ email, count: batchInvoices.length, success });
-      } catch (err) {
-        results.push({ email, count: batchInvoices.length, success: false });
-      }
-    }
-
-    const allSuccess = results.every(r => r.success);
-    const totalEmails = results.length;
-    const totalInvoices = invoices.length;
+    const results = groups.map(g => ({
+      email: g.email,
+      count: g.invoiceNumbers.length,
+      success: g.success
+    }));
 
     res.json({
-      success: allSuccess,
-      message: `Created ${totalEmails} email draft(s) with ${totalInvoices} invoice(s)`,
+      success: results.every(r => r.success),
+      message: `Created ${results.length} email draft(s) with ${invoices.length} invoice(s)`,
       results
     });
   };

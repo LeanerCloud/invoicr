@@ -317,4 +317,78 @@ describe('API file operation endpoints', { sequential: true }, () => {
       expect([200, 500]).toContain(response.status);
     });
   });
+
+  describe('POST /api/personas/:persona/invoice/batch-email', () => {
+    it('should fail with an empty invoices array', async () => {
+      const response = await httpRequest({
+        method: 'POST',
+        path: `/api/personas/${TEST_PERSONA}/invoice/batch-email`,
+        port: testPort,
+        body: { invoices: [] }
+      });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain('invoices');
+    });
+
+    it('should fail when an item is missing pdfPath', async () => {
+      await httpRequest({
+        method: 'PUT',
+        path: `/api/personas/${TEST_PERSONA}/provider`,
+        port: testPort,
+        body: validProvider
+      });
+
+      const response = await httpRequest({
+        method: 'POST',
+        path: `/api/personas/${TEST_PERSONA}/invoice/batch-email`,
+        port: testPort,
+        body: { invoices: [{ clientName: 'test-client' }] }
+      });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain('clientName and pdfPath');
+    });
+
+    it('should fail for a non-existent PDF', async () => {
+      await httpRequest({
+        method: 'PUT',
+        path: `/api/personas/${TEST_PERSONA}/provider`,
+        port: testPort,
+        body: validProvider
+      });
+
+      const response = await httpRequest({
+        method: 'POST',
+        path: `/api/personas/${TEST_PERSONA}/invoice/batch-email`,
+        port: testPort,
+        body: { invoices: [{ clientName: 'test-client', pdfPath: '/nonexistent/x.pdf' }] }
+      });
+
+      expect(response.status).toBe(404);
+      expect(response.body.error).toContain('PDF file not found');
+    });
+
+    it('should fail for a non-existent client', async () => {
+      await httpRequest({
+        method: 'PUT',
+        path: `/api/personas/${TEST_PERSONA}/provider`,
+        port: testPort,
+        body: validProvider
+      });
+
+      const fakePdf = path.join(tempDir, 'batch-fake-invoice.pdf');
+      fs.writeFileSync(fakePdf, 'fake pdf content');
+
+      const response = await httpRequest({
+        method: 'POST',
+        path: `/api/personas/${TEST_PERSONA}/invoice/batch-email`,
+        port: testPort,
+        body: { invoices: [{ clientName: 'nonexistent-client', pdfPath: fakePdf }] }
+      });
+
+      expect(response.status).toBe(404);
+      expect(response.body.error).toContain('not found');
+    });
+  });
 });

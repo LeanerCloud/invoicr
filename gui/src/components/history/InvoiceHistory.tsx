@@ -23,6 +23,49 @@ export function InvoiceHistory({ persona, clientName, onBack }: InvoiceHistoryPr
   const totalAmount = invoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
   const totalQuantity = invoices.reduce((sum, inv) => sum + inv.quantity, 0);
 
+  // Bulk email selection (only invoices that have a PDF can be emailed)
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [isBulkEmailing, setIsBulkEmailing] = useState(false);
+  const [bulkResult, setBulkResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  const emailableNumbers = invoices.filter(inv => inv.pdfPath).map(inv => inv.invoiceNumber);
+  const allSelected = emailableNumbers.length > 0 && emailableNumbers.every(n => selected.has(n));
+
+  const toggleOne = (invoiceNumber: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(invoiceNumber)) next.delete(invoiceNumber);
+      else next.add(invoiceNumber);
+      return next;
+    });
+    setBulkResult(null);
+  };
+
+  const toggleAll = () => {
+    setSelected(allSelected ? new Set() : new Set(emailableNumbers));
+    setBulkResult(null);
+  };
+
+  const handleBulkEmail = async () => {
+    const chosen = invoices.filter(inv => selected.has(inv.invoiceNumber) && inv.pdfPath);
+    if (chosen.length === 0 || isBulkEmailing) return;
+
+    setIsBulkEmailing(true);
+    setBulkResult(null);
+    try {
+      const result = await fileApi.batchEmailInvoices(
+        persona,
+        chosen.map(inv => ({ clientName, pdfPath: inv.pdfPath! }))
+      );
+      setBulkResult({ success: result.success, message: result.message });
+      if (result.success) setSelected(new Set());
+    } catch (err) {
+      setBulkResult({ success: false, message: (err as Error).message || 'Failed to send emails' });
+    } finally {
+      setIsBulkEmailing(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -83,6 +126,48 @@ export function InvoiceHistory({ persona, clientName, onBack }: InvoiceHistoryPr
         </div>
       </div>
 
+      {/* Bulk email result */}
+      {bulkResult && (
+        <div
+          className={`mb-4 rounded-lg border p-3 text-sm ${
+            bulkResult.success
+              ? 'bg-green-50 border-green-200 text-green-700'
+              : 'bg-red-50 border-red-200 text-red-700'
+          }`}
+        >
+          {bulkResult.message}
+        </div>
+      )}
+
+      {/* Bulk email action bar */}
+      {selected.size > 0 && (
+        <div className="mb-4 flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+          <span className="text-sm text-blue-800">
+            {selected.size} invoice{selected.size === 1 ? '' : 's'} selected
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSelected(new Set())}
+              className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              Clear
+            </button>
+            <button
+              onClick={handleBulkEmail}
+              disabled={isBulkEmailing}
+              className="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
+            >
+              {isBulkEmailing ? (
+                <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+              ) : (
+                <Mail className="w-4 h-4 mr-1.5" />
+              )}
+              Email {selected.size} selected
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Invoice List */}
       {invoices.length === 0 ? (
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
@@ -97,6 +182,16 @@ export function InvoiceHistory({ persona, clientName, onBack }: InvoiceHistoryPr
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
+                <th className="px-4 py-3 text-left w-10">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleAll}
+                    disabled={emailableNumbers.length === 0}
+                    aria-label="Select all invoices"
+                    className="rounded border-gray-300 cursor-pointer disabled:cursor-not-allowed"
+                  />
+                </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Invoice
                 </th>
@@ -129,6 +224,8 @@ export function InvoiceHistory({ persona, clientName, onBack }: InvoiceHistoryPr
                   billingType={client?.service.billingType || 'hourly'}
                   persona={persona}
                   clientName={clientName}
+                  selected={selected.has(invoice.invoiceNumber)}
+                  onToggleSelect={() => toggleOne(invoice.invoiceNumber)}
                   onDelete={() => deleteInvoiceMutation.mutate(invoice.invoiceNumber)}
                   isDeleting={deleteInvoiceMutation.isPending}
                 />
@@ -147,11 +244,13 @@ interface InvoiceRowProps {
   billingType: string;
   persona: string;
   clientName: string;
+  selected: boolean;
+  onToggleSelect: () => void;
   onDelete: () => void;
   isDeleting: boolean;
 }
 
-function InvoiceRow({ invoice, currencySymbol, billingType, persona, clientName, onDelete, isDeleting }: InvoiceRowProps) {
+function InvoiceRow({ invoice, currencySymbol, billingType, persona, clientName, selected, onToggleSelect, onDelete, isDeleting }: InvoiceRowProps) {
   const [isOpening, setIsOpening] = useState(false);
   const [isEmailing, setIsEmailing] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -186,7 +285,25 @@ function InvoiceRow({ invoice, currencySymbol, billingType, persona, clientName,
   };
 
   return (
-    <tr className="hover:bg-gray-50 transition-colors">
+    <tr className={`transition-colors ${selected ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
+      <td className="px-4 py-3">
+        {invoice.pdfPath ? (
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onToggleSelect}
+            aria-label={`Select invoice ${invoice.invoiceNumber}`}
+            className="rounded border-gray-300 cursor-pointer"
+          />
+        ) : (
+          <input
+            type="checkbox"
+            disabled
+            aria-label={`Invoice ${invoice.invoiceNumber} has no PDF`}
+            className="rounded border-gray-300 cursor-not-allowed opacity-40"
+          />
+        )}
+      </td>
       <td className="px-4 py-3">
         <span className="font-mono font-medium text-gray-900">
           {invoice.invoiceNumber}

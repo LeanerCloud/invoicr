@@ -173,3 +173,68 @@ export function deleteInvoice(
 export function clearHistory(clientDir: string): void {
   saveHistory(clientDir, { invoices: [] });
 }
+
+export interface InvoiceAttachments {
+  /** Absolute PDF path, or null if none could be located. */
+  pdfPath: string | null;
+  /** Absolute e-invoice XML path, if one exists. */
+  eInvoicePath?: string;
+}
+
+/**
+ * Locate the PDF (and optional e-invoice XML) for an invoice.
+ * Prefers `preferredPdfPath` when it still exists, otherwise searches the
+ * client directory for a file whose name contains the invoice number bounded
+ * by underscores (the `<prefix>_<invoiceNumber>_<month>` naming), so e.g.
+ * "SM-1" does not match "SM-15".
+ */
+export function findInvoiceAttachments(
+  clientDir: string,
+  invoiceNumber: string,
+  preferredPdfPath?: string
+): InvoiceAttachments {
+  const findByExt = (ext: string): string | undefined => {
+    if (!fs.existsSync(clientDir)) return undefined;
+    const match = fs.readdirSync(clientDir).find(f => f.endsWith(ext) && filenameHasInvoiceNumber(f, invoiceNumber, ext));
+    return match ? path.join(clientDir, match) : undefined;
+  };
+
+  let pdfPath: string | null = null;
+  if (preferredPdfPath && fs.existsSync(preferredPdfPath)) {
+    pdfPath = preferredPdfPath;
+  } else {
+    pdfPath = findByExt('.pdf') ?? null;
+  }
+
+  const eInvoicePath = findByExt('.xml');
+
+  return { pdfPath, eInvoicePath };
+}
+
+/**
+ * True when `file` embeds `invoiceNumber` bounded by underscores, or as the
+ * last segment before `ext`. Anchoring to the extension keeps "SM.-1" from
+ * matching a "SM.-1.-1" file, which a bare `_SM.-1.` substring would.
+ */
+function filenameHasInvoiceNumber(file: string, invoiceNumber: string, ext: string): boolean {
+  return file.includes(`_${invoiceNumber}_`) || file.endsWith(`_${invoiceNumber}${ext}`);
+}
+
+/**
+ * Find the history entry that produced a given PDF. Matches by exact recorded
+ * `pdfPath` first, then falls back to the invoice number bounded by underscores
+ * in the filename (so "SM-1" does not match an "SM-15" file).
+ */
+export function findHistoryEntryByPdf(
+  clientDir: string,
+  pdfPath: string
+): InvoiceHistoryEntry | null {
+  const invoices = loadHistory(clientDir).invoices;
+  const exact = invoices.find(inv => inv.pdfPath === pdfPath);
+  if (exact) return exact;
+
+  const fileName = path.basename(pdfPath);
+  return (
+    invoices.find(inv => filenameHasInvoiceNumber(fileName, inv.invoiceNumber, path.extname(fileName))) || null
+  );
+}

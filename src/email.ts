@@ -272,12 +272,12 @@ export function createEmail(
   ctx: InvoiceContext,
   attachments: string[],
   isTestMode: boolean
-): void {
+): boolean {
   const prepared = prepareEmail(ctx, attachments, isTestMode);
 
   if (!prepared) {
     console.error('No email recipients configured in client JSON');
-    return;
+    return false;
   }
 
   const success = executeAppleScript(prepared.appleScript);
@@ -287,6 +287,7 @@ export function createEmail(
   } else {
     console.error('Failed to create email. Make sure Mail.app is configured.');
   }
+  return success;
 }
 
 // ============================================
