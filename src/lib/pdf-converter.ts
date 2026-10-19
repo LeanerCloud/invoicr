@@ -15,6 +15,8 @@ const REQUEST_TIMEOUT_MS = 60_000;
 const SOFFICE_PROBE_TIMEOUT_MS = 15_000;
 const SOFFICE_CONVERT_TIMEOUT_MS = 120_000;
 const KILL_GRACE_MS = 5_000;
+// Linux stamps file mtimes from a coarse clock that can trail Date.now() by several ms
+const MTIME_SLACK_MS = 2_000;
 
 export interface WordCraftControlOptions {
   port: number;
@@ -159,7 +161,7 @@ async function convertWithWordCraft(docxPath: string, pdfPath: string): Promise<
   const keyPath = path.join(
     os.homedir(), 'Library', 'Application Support', 'WordCraft', `control-key.local-${port}`
   );
-  const spawnedAt = Date.now();
+  const spawnedAt = Date.now() - MTIME_SLACK_MS;
   const child = spawn(WORDCRAFT_BINARY, ['--control', String(port)], { stdio: 'ignore' });
   let failure: Error | null = null;
   let gone = false;
