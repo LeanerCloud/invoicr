@@ -12,7 +12,7 @@ import {
   applyCurrencyConversion,
   generateDocx,
   generateDocuments,
-  isLibreOfficeAvailable,
+  detectPdfConverter,
   addHistoryEntry,
   parseMonthArg,
   getDefaultBillingMonth,
@@ -136,7 +136,7 @@ export function generateInvoice(ctx: ServerContext) {
       currency: string;
     };
 
-    if (generatePdf && isLibreOfficeAvailable()) {
+    if (generatePdf && detectPdfConverter() !== null) {
       const docs = await generateDocuments(context, clientInfo.directory, {
         template: effectiveTemplate,
         personaDir

@@ -1,9 +1,9 @@
 /**
- * System routes - health check, LibreOffice status, and countries
+ * System routes - health check, PDF converter status, and countries
  */
 
 import type { ApiRequest, ApiResponse, ServerContext } from '../types.js';
-import { isLibreOfficeAvailable, getLibreOfficeVersion } from '../../lib/index.js';
+import { detectPdfConverter } from '../../lib/index.js';
 import { getAllCountries } from '../../data/countries.js';
 
 export function healthCheck(ctx: ServerContext) {
@@ -19,9 +19,8 @@ export function healthCheck(ctx: ServerContext) {
 
 export function libreOfficeStatus() {
   return async (_req: ApiRequest, res: ApiResponse): Promise<void> => {
-    const available = isLibreOfficeAvailable();
-    const version = available ? getLibreOfficeVersion() : null;
-    res.json({ available, version });
+    const version = detectPdfConverter();
+    res.json({ available: version !== null, version });
   };
 }
 
