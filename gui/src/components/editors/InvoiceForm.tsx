@@ -256,7 +256,7 @@ export function InvoiceForm({ persona, clientName, onBack }: InvoiceFormProps) {
             <label htmlFor="generatePdf" className="ml-2 block text-sm text-gray-700">
               Generate PDF
               {!libreOfficeStatus?.available && (
-                <span className="text-gray-400 ml-1">(LibreOffice not available)</span>
+                <span className="text-gray-400 ml-1">(no PDF converter: install WordCraft or LibreOffice)</span>
               )}
             </label>
           </div>

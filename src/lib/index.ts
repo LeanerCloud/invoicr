@@ -51,12 +51,17 @@ export {
   generateDocx,
   convertToPdf,
   generateDocuments,
-  isLibreOfficeAvailable,
-  getLibreOfficeVersion,
   generateOutputPaths,
   type GeneratedDocument,
   type GeneratedPDF
 } from './document-generator.js';
+
+// PDF Conversion
+export {
+  detectPdfConverter,
+  convertDocxToPdf,
+  type PdfConverter
+} from './pdf-converter.js';
 
 // History Management
 export {

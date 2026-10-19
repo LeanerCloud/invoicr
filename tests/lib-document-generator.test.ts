@@ -1,4 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { convertDocxToPdf } from '../src/lib/pdf-converter.js';
+
+// Never launch the real WordCraft or soffice from tests
+vi.mock('../src/lib/pdf-converter.js', async importOriginal => ({
+  ...(await importOriginal<typeof import('../src/lib/pdf-converter.js')>()),
+  convertDocxToPdf: vi.fn()
+}));
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -6,9 +13,7 @@ import {
   generateDocx,
   generateDocuments,
   convertToPdf,
-  generateOutputPaths,
-  isLibreOfficeAvailable,
-  getLibreOfficeVersion
+  generateOutputPaths
 } from '../src/lib/document-generator.js';
 import type { InvoiceContext } from '../src/types.js';
 
@@ -193,69 +198,50 @@ describe('document-generator', () => {
     });
   });
 
-  describe('isLibreOfficeAvailable', () => {
-    it('should return a boolean', () => {
-      const result = isLibreOfficeAvailable();
-      expect(typeof result).toBe('boolean');
-    });
-  });
-
-  describe('getLibreOfficeVersion', () => {
-    it('should return string or null', () => {
-      const result = getLibreOfficeVersion();
-      expect(result === null || typeof result === 'string').toBe(true);
-    });
-  });
-
   describe('convertToPdf', () => {
-    it('should throw error when LibreOffice not available or conversion fails', async () => {
-      const ctx = createValidContext();
-      const { docxPath } = await generateDocx(ctx, tempDir);
+    it('should delegate to convertDocxToPdf and return its path', async () => {
+      vi.mocked(convertDocxToPdf).mockResolvedValueOnce('/out/a.pdf');
 
-      // This may throw if LibreOffice isn't installed, which is expected behavior
-      try {
-        const pdfPath = convertToPdf(docxPath);
-        // If LibreOffice is installed, check that PDF was created
-        expect(fs.existsSync(pdfPath)).toBe(true);
-      } catch (error) {
-        // Expected if LibreOffice not installed
-        expect((error as Error).message).toContain('PDF conversion failed');
-      }
+      await expect(convertToPdf('/out/a.docx')).resolves.toBe('/out/a.pdf');
+      expect(convertDocxToPdf).toHaveBeenCalledWith('/out/a.docx');
     });
 
-    it('should throw for non-existent docx file', () => {
-      expect(() => convertToPdf('/nonexistent/file.docx')).toThrow();
+    it('should reject when conversion fails', async () => {
+      vi.mocked(convertDocxToPdf).mockRejectedValueOnce(new Error('PDF conversion failed (x): boom'));
+
+      await expect(convertToPdf('/nonexistent/file.docx')).rejects.toThrow('PDF conversion failed');
     });
   });
 
   describe('generateDocuments', () => {
+    beforeEach(() => {
+      vi.mocked(convertDocxToPdf).mockImplementation(async docxPath => {
+        const pdfPath = docxPath.replace(/\.docx$/, '.pdf');
+        fs.writeFileSync(pdfPath, '%PDF');
+        return pdfPath;
+      });
+    });
+
     it('should generate both DOCX and PDF', async () => {
       const ctx = createValidContext();
+      const result = await generateDocuments(ctx, tempDir);
 
-      try {
-        const result = await generateDocuments(ctx, tempDir);
-
-        expect(result.docxPath).toContain('.docx');
-        expect(result.pdfPath).toContain('.pdf');
-        expect(result.docxBuffer).toBeInstanceOf(Buffer);
-        expect(fs.existsSync(result.docxPath)).toBe(true);
-        expect(fs.existsSync(result.pdfPath)).toBe(true);
-      } catch (error) {
-        // Expected if LibreOffice not installed
-        expect((error as Error).message).toContain('PDF conversion failed');
-      }
+      expect(result.docxPath).toContain('.docx');
+      expect(result.pdfPath).toContain('.pdf');
+      expect(result.docxBuffer).toBeInstanceOf(Buffer);
+      expect(fs.existsSync(result.docxPath)).toBe(true);
+      expect(fs.existsSync(result.pdfPath)).toBe(true);
     });
 
     it('should use specified template for document generation', async () => {
       const ctx = createValidContext();
+      const result = await generateDocuments(ctx, tempDir, 'detailed');
+      expect(result.docxBuffer.length).toBeGreaterThan(0);
+    });
 
-      try {
-        const result = await generateDocuments(ctx, tempDir, 'detailed');
-        expect(result.docxBuffer.length).toBeGreaterThan(0);
-      } catch (error) {
-        // Expected if LibreOffice not installed
-        expect((error as Error).message).toContain('PDF conversion failed');
-      }
+    it('should propagate conversion failures', async () => {
+      vi.mocked(convertDocxToPdf).mockRejectedValueOnce(new Error('PDF conversion failed (x): boom'));
+      await expect(generateDocuments(createValidContext(), tempDir)).rejects.toThrow('PDF conversion failed');
     });
   });
 

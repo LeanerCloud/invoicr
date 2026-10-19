@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 import * as fs from 'fs';
 import * as path from 'path';
-import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { Provider, Client, Translations, InvoiceContext, ResolvedLineItem, EInvoiceFormat, CountryCode } from './types.js';
 import { formatDate, formatCurrency, getServiceDescription, calculateDueDate, sanitizeFilenamePart } from './utils.js';
 import { generateInvoiceFromTemplate } from './lib/template-generator.js';
 import { applyCurrencyConversion } from './lib/invoice-builder.js';
 import { createEmail } from './email.js';
+import { convertDocxToPdf } from './lib/pdf-converter.js';
 import { validateProvider, validateClient } from './schemas/index.js';
 import { saveToHistory } from './history.js';
 import { canGenerateEInvoice, getDefaultFormat, validateForEInvoice, generateEInvoice, saveEInvoice } from './einvoice/index.js';
@@ -375,17 +375,17 @@ async function runInvoice() {
   }
 
   // Generate DOCX and PDF
-  await generateInvoiceFromTemplate(ctx, effectiveTemplateName, cwd).then(buffer => {
+  await generateInvoiceFromTemplate(ctx, effectiveTemplateName, cwd).then(async buffer => {
     fs.writeFileSync(docxPath, buffer);
     console.log(`DOCX created: ${docxPath}`);
 
-    // Convert to PDF using LibreOffice
+    // Convert to PDF; abort before history/numbering so a failure leaves them untouched
     try {
-      execSync(`soffice --headless --convert-to pdf --outdir "${outputDir}" "${docxPath}"`, { stdio: 'inherit' });
+      await convertDocxToPdf(docxPath);
       console.log(`PDF created: ${pdfPath}`);
     } catch (err) {
-      console.error('PDF conversion failed. Make sure LibreOffice is installed.');
-      console.error('Install with: brew install --cask libreoffice');
+      console.error(err instanceof Error ? err.message : String(err));
+      process.exit(1);
     }
 
     // Save to history
