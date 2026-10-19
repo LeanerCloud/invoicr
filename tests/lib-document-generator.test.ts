@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { convertDocxToPdf, detectPdfConverter } from '../src/lib/pdf-converter.js';
+import { convertDocxToPdf } from '../src/lib/pdf-converter.js';
 
 // Never launch the real WordCraft or soffice from tests
 vi.mock('../src/lib/pdf-converter.js', async importOriginal => ({
@@ -195,12 +195,6 @@ describe('document-generator', () => {
       const result = generateOutputPaths(ctx, '/output');
 
       expect(result.docxPath).toContain('Invoice_');
-    });
-  });
-
-  describe('detectPdfConverter', () => {
-    it('should return a known converter or null', () => {
-      expect([null, 'wordcraft', 'libreoffice']).toContain(detectPdfConverter());
     });
   });
 

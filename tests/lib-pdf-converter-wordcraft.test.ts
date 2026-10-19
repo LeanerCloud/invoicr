@@ -5,7 +5,12 @@ import * as net from 'net';
 import * as os from 'os';
 import * as path from 'path';
 
-const state = vi.hoisted(() => ({ home: '', spawn: null as null | ((args: string[]) => unknown) }));
+const state = vi.hoisted(() => ({
+  home: '',
+  spawn: null as null | ((args: string[]) => unknown),
+  unlinked: [] as string[],
+  seedStale: false
+}));
 
 // The real app must never launch and the real key dir must never be read
 vi.mock('child_process', () => ({
@@ -20,6 +25,12 @@ vi.mock('fs', async importOriginal => {
   const actual = await importOriginal<typeof import('fs')>();
   return {
     ...actual,
+    // Seeds a stale key just before the real unlink so the removal is observable
+    unlinkSync: (p: string) => {
+      state.unlinked.push(p);
+      if (state.seedStale) actual.writeFileSync(p, 'stale\n');
+      actual.unlinkSync(p);
+    },
     existsSync: (p: string) => p.endsWith('/WordCraft.app/Contents/MacOS/WordCraft') || actual.existsSync(p)
   };
 });
@@ -42,6 +53,8 @@ describe('convertDocxToPdf with WordCraft', () => {
     docx = path.join(tempDir, 'a.docx');
     fs.writeFileSync(docx, 'x');
     servers = [];
+    state.unlinked = [];
+    state.seedStale = false;
   });
 
   afterEach(() => {
@@ -50,16 +63,19 @@ describe('convertDocxToPdf with WordCraft', () => {
   });
 
   // Fake app: writes the key file and serves the control port named in the args
-  function fakeApp(child: FakeChild, exportReply: object) {
+  function fakeApp(child: FakeChild, exportReply: object, keysSeen: string[] = []) {
     return (args: string[]) => {
       const port = Number(args[1]);
       const dir = path.join(tempDir, 'Library', 'Application Support', 'WordCraft');
+      const keyFile = path.join(dir, `control-key.local-${port}`);
+      expect(fs.existsSync(keyFile)).toBe(false);
       fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(path.join(dir, `control-key.local-${port}`), 'k\n');
+      fs.writeFileSync(keyFile, 'k\n');
       const server = net.createServer(socket => {
         socket.on('data', chunk => {
           for (const line of chunk.toString().split('\n').filter(Boolean)) {
             const req = JSON.parse(line);
+            keysSeen.push(req.key);
             let reply: object = { ok: true };
             if (req.method === 'file.exportPdf') {
               reply = exportReply;
@@ -74,6 +90,19 @@ describe('convertDocxToPdf with WordCraft', () => {
       return child;
     };
   }
+
+  it('removes a stale key file for the port before spawn and uses the fresh key', async () => {
+    const child = new FakeChild();
+    const keysSeen: string[] = [];
+    state.seedStale = true;
+    state.spawn = fakeApp(child, { ok: true }, keysSeen);
+
+    await convertDocxToPdf(docx);
+
+    expect(state.unlinked).toHaveLength(1);
+    expect(state.unlinked[0]).toMatch(/control-key\.local-\d+$/);
+    expect(new Set(keysSeen)).toEqual(new Set(['k']));
+  });
 
   it('rejects with the wordcraft message when spawn emits error', async () => {
     const child = new FakeChild();

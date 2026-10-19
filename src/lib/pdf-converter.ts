@@ -15,8 +15,6 @@ const REQUEST_TIMEOUT_MS = 60_000;
 const SOFFICE_PROBE_TIMEOUT_MS = 15_000;
 const SOFFICE_CONVERT_TIMEOUT_MS = 120_000;
 const KILL_GRACE_MS = 5_000;
-// Linux stamps file mtimes from a coarse clock that can trail Date.now() by several ms
-const MTIME_SLACK_MS = 2_000;
 
 export interface WordCraftControlOptions {
   port: number;
@@ -124,21 +122,16 @@ function canConnect(port: number): Promise<boolean> {
   });
 }
 
-/**
- * Wait for a control server started after `spawnedAt`: a key file older than
- * that belongs to an earlier run on the same port.
- */
 async function waitForWordCraft(
   port: number,
   keyPath: string,
-  spawnedAt: number,
   childFailure: () => Error | null
 ): Promise<void> {
   const deadline = Date.now() + STARTUP_TIMEOUT_MS;
   while (Date.now() < deadline) {
     const failure = childFailure();
     if (failure) throw failure;
-    if (fs.existsSync(keyPath) && fs.statSync(keyPath).mtimeMs >= spawnedAt && await canConnect(port)) return;
+    if (fs.existsSync(keyPath) && await canConnect(port)) return;
     await new Promise(r => setTimeout(r, 250));
   }
   throw new Error(`WordCraft did not start its control channel within ${STARTUP_TIMEOUT_MS / 1000}s`);
@@ -161,7 +154,12 @@ async function convertWithWordCraft(docxPath: string, pdfPath: string): Promise<
   const keyPath = path.join(
     os.homedir(), 'Library', 'Application Support', 'WordCraft', `control-key.local-${port}`
   );
-  const spawnedAt = Date.now() - MTIME_SLACK_MS;
+  // A leftover key from an earlier run on this port must not be read as the new app's key
+  try {
+    fs.unlinkSync(keyPath);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+  }
   const child = spawn(WORDCRAFT_BINARY, ['--control', String(port)], { stdio: 'ignore' });
   let failure: Error | null = null;
   let gone = false;
@@ -171,7 +169,7 @@ async function convertWithWordCraft(docxPath: string, pdfPath: string): Promise<
     failure ??= new Error(`WordCraft exited before its control server started (code ${code})`);
   });
   try {
-    await waitForWordCraft(port, keyPath, spawnedAt, () => failure);
+    await waitForWordCraft(port, keyPath, () => failure);
     await runWordCraftControl({ port, keyPath, docxPath, pdfPath });
   } finally {
     await stopChild(child, gone);
